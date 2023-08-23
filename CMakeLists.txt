@@ -23,5 +23,6 @@ include_directories("${PROJECT_SOURCE_DIR}/include/a_c_compiler/lex")
 include_directories("${PROJECT_SOURCE_DIR}/include/a_c_compiler/parse")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
+enable_testing()
 add_subdirectory(lib)
 add_subdirectory(test)

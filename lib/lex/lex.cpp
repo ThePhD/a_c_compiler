@@ -1,12 +1,13 @@
 #include "lex.h"
 #include <cassert>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 
 /* Place lexed literals and identifiers in these vectors for the parser to
- * access later */
-static std::vector<int> lexed_numeric_literals;
+ * access later. Leave numeric literals as strings becaues it is the parser's
+ * job to figure out what type the literal should be parsed to. */
+static std::vector<std::string> lexed_numeric_literals;
 static std::vector<std::string> lexed_string_literals;
 static std::vector<std::string> lexed_ids;
 
@@ -15,33 +16,42 @@ namespace a_c_compiler {
 /* Maps tokens to offsets into source files */
 static std::vector<file_offset_info> token_source_info;
 
-file_offset_info source_info_for_token(size_t tok_idx) {
-  return token_source_info[tok_idx];
-}
+file_offset_info source_info_for_token(size_t tok_idx) { return token_source_info[tok_idx]; }
 
-void dump_tokens(std::vector<std::tuple<token, file_offset_info>> const& toks) {
+void dump_tokens(std::vector<std::tuple<token, file_offset_info>> const &toks) {
   size_t id_idx = 0, numlit_idx = 0, strlit_idx = 0;
   static constexpr size_t width = 15;
-  std::cout << std::setw(width) << "line:column" << " | token\n";
+  std::cout << std::setw(width) << "line:column"
+            << " | token\n";
   for (auto [t, foi] : toks) {
     std::stringstream ss;
     ss << foi.lineno << ":" << foi.column;
     std::cout << std::setw(width) << ss.str() << " | ";
     switch (t) {
 
-#define WHITESPACE_TOKEN(TOK, LIT)                                                                 \
+#define CHAR_TOKEN(TOK, LIT)                                                                       \
   case TOK:                                                                                        \
     std::cout << #TOK;                                                                             \
     break;
 
-#define CHAR_TOKEN(TOK, LIT)                                                                       \
-  case TOK:                                                                                        \
-    std::cout << #TOK << ": '" << LIT << "'";                                                      \
-    break;
-
 #include "tokens.inl.h"
 #undef CHAR_TOKEN
-#undef WHITESPACE_TOKEN
+
+    case tok_block_comment:
+      std::cout << "tok_block_comment";
+      break;
+
+    case tok_line_comment:
+      std::cout << "tok_line_comment";
+      break;
+
+    case tok_newline:
+      std::cout << "tok_newline";
+      break;
+
+    case tok_tab:
+      std::cout << "tok_tab";
+      break;
 
     case tok_id:
       std::cout << "tok_id: " << lexed_id(id_idx++);
@@ -62,13 +72,13 @@ void dump_tokens(std::vector<std::tuple<token, file_offset_info>> const& toks) {
   }
 }
 
-int lexed_numeric_literal(size_t index) { return lexed_numeric_literals[index]; }
+std::string lexed_numeric_literal(size_t index) { return lexed_numeric_literals[index]; }
 std::string lexed_id(size_t index) { return lexed_ids[index]; }
 std::string lexed_string_literal(size_t index) { return lexed_string_literals[index]; }
 
 std::vector<std::tuple<token, file_offset_info>> lex(fs::path const &source_file) {
   std::vector<std::tuple<token, file_offset_info>> toks;
-  toks.reserve(1024);
+  toks.reserve(2048);
 
   FILE *fp = fopen(source_file.c_str(), "r");
   assert(fp && "Couldn't open file");
@@ -76,11 +86,12 @@ std::vector<std::tuple<token, file_offset_info>> lex(fs::path const &source_file
   size_t lineno = 0, column = 0;
 
   /* Get next character while tracking source location info */
-  auto getc = [&] () {
+  auto getc = [&]() {
     c = fgetc(fp);
-    column++;
-    while (c == ' ') {
-      c = fgetc(fp);
+    if (c == '\n') {
+      lineno++;
+      column = 0;
+    } else {
       column++;
     }
     return c;
@@ -90,18 +101,48 @@ std::vector<std::tuple<token, file_offset_info>> lex(fs::path const &source_file
   while (c != EOF) {
     switch (c) {
     case ' ':
-      continue;
+      break;
 
-      /* Char-like tokens */
     case '\t':
-#define CHAR_TOKEN(TOK, LIT)       case LIT:
+      toks.push_back({tok_tab, {lineno, column}});
+      break;
+
+      /* Handle comments */
+    case '/': {
+      file_offset_info foi{lineno, column};
+      getc();
+      /* Line comment */
+      if (c == '/') {
+        while (c != '\n') {
+          getc();
+        }
+        toks.push_back({tok_line_comment, foi});
+        break;
+      }
+
+      /* Block comment */
+      else if (c == '*') {
+        while (true) {
+          if (getc() == '*' && getc() == '/') {
+            toks.push_back({tok_block_comment, foi});
+            break;
+          }
+          assert(c != EOF && "unterminated block comment");
+        }
+        break;
+      }
+      else {
+        toks.push_back({tok_forward_slash, foi});
+      }
+    }
+
+    /* Char-like tokens */
+#define CHAR_TOKEN(TOK, LIT) case LIT:
 #include "tokens.inl.h"
       toks.push_back({(token)c, {lineno, column}});
       break;
 
     case '\n':
-      lineno++;
-      column = 0;
       toks.push_back({tok_newline, {lineno, column}});
       break;
 
@@ -120,7 +161,7 @@ std::vector<std::tuple<token, file_offset_info>> lex(fs::path const &source_file
       file_offset_info foi{lineno, column};
       std::string lit = "";
       lit += c;
-      while (std::isdigit(c = fgetc(fp))) {
+      while (std::isdigit(getc()) || c == '.') {
         lit += c;
       }
 
@@ -131,7 +172,7 @@ std::vector<std::tuple<token, file_offset_info>> lex(fs::path const &source_file
         ungetc(c, fp);
       }
 
-      lexed_numeric_literals.push_back(std::atoi(lit.c_str()));
+      lexed_numeric_literals.push_back(lit);
       toks.push_back({tok_num_literal, foi});
       break;
     }

@@ -1,4 +1,3 @@
-add_test(
-  NAME test-driver
-  COMMAND $<TARGET_FILE:a_c_compiler> -v ${CMAKE_CURRENT_SOURCE_DIR}/main.c
-  )
+include(${PROJECT_SOURCE_DIR}/cmake/FindFileCheck.cmake)
+find_program(BASH_EXE "bash" REQUIRED)
+add_subdirectory(lex)

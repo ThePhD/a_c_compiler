@@ -9,15 +9,20 @@ CHAR_TOKEN(tok_semicolon, ';')
 CHAR_TOKEN(tok_asterisk, '*')
 CHAR_TOKEN(tok_colon, ':')
 CHAR_TOKEN(tok_comma, ',')
-#endif
 
-#ifdef WHITESPACE_TOKEN
-WHITESPACE_TOKEN(tok_newline, '\n')
-WHITESPACE_TOKEN(tok_tab, '\t')
+CHAR_TOKEN(tok_plus, '+')
+CHAR_TOKEN(tok_minus, '-')
+CHAR_TOKEN(tok_ampersand, '&')
+CHAR_TOKEN(tok_percent, '%')
 #endif
 
 #ifdef TOKEN
 TOKEN(tok_id, -1)
 TOKEN(tok_num_literal, -2)
 TOKEN(tok_str_literal, -3)
+TOKEN(tok_line_comment, -4)
+TOKEN(tok_block_comment, -5)
+TOKEN(tok_newline, -6)
+TOKEN(tok_tab, -7)
+TOKEN(tok_forward_slash, -8)
 #endif
