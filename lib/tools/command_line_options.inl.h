@@ -6,7 +6,7 @@
  */
 FLAG(help, false, "-h", "--help", "Print help message")
 FLAG(verbose, false, "-v", "--verbose", "Display extra information from the driver")
-FLAG(syntax_only, false, "", "-fsyntax-only", "Stop after the parsing phase")
+FLAG(debug_lexer, false, "-L", "--debug-lexer", "Dump tokens after lexing phase")
 #endif
 
 #ifdef OPTION

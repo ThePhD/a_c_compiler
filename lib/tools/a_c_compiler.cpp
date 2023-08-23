@@ -145,8 +145,12 @@ int main(int argc, char **argv) {
   VERBOSE(print_cli_opts());
 
   for (auto const& source_file : cli_opts.positional_args) {
-    VERBOSE(std::cout << "Lexing source file " << source_file << "\n");
+    VERBOSE(std::cout << "\nLexing source file " << source_file << "\n");
     auto tokens = lex(source_file);
+
+    if (cli_opts.debug_lexer) {
+      dump_tokens(tokens);
+    }
   }
 
   return EXIT_SUCCESS;
