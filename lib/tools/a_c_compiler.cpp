@@ -5,24 +5,54 @@
 #include <string_view>
 #include <vector>
 
+using namespace std::literals;
 namespace fs = std::filesystem;
 
+#include "lex.h"
+
+using namespace a_c_compiler;
+
 static struct {
+#define FLAG(NAME, DEFAULT_VALUE, ...)            bool NAME = DEFAULT_VALUE;
+#define OPTION(NAME, TYPE, CLINAME, DEFVAL, HELP) TYPE NAME = DEFVAL;
+#include "command_line_options.inl.h"
+#undef FLAG
+#undef OPTION
   std::vector<fs::path> positional_args;
 } cli_opts;
 
 int help(std::string_view exe) {
-  const auto help_flag = [](const char *f_short, const char *f_long, const char *help) {
-    const auto flag = std::string(f_short) + "|" + f_long;
-    std::cout << "\t" << std::setw(10) << flag << "\t" << help << "\n";
+  static constexpr size_t width = 25;
+  const auto help_flag = [=](std::string f_short, std::string f_long, const char *help) {
+    const auto flag = f_short + (f_short.empty() ? "" : " | ") + f_long;
+    std::cout << "\t" << std::left << std::setw(width) << flag << " :: " << help << "\n";
   };
-  std::cout << "Usage:"
-            << "\t" << exe << " [flags] [source files]"
-            << "\n\n"
-            << "Flags:\n";
-  help_flag("-h", "--help", "Print this help message.");
+  const auto help_option = [=](std::string option, std::string type, std::string default_value,
+                               std::string help) {
+    std::cout << "\t" << std::left << std::setw(width) << option << " :: " << help << "\n\t"
+              << std::setw(width + 3) << ""
+              << " ("
+              << "type=" << type << ", default=" << default_value << ")\n";
+  };
+  std::cout << "Usage:\t" << exe << " [flags] [source files]\n\n";
+
+  std::cout << "Flags:\n";
+#define FLAG(NAME, DEFVAL, FSHORT, FLONG, HELP)   help_flag(FSHORT, FLONG, HELP);
+#include "command_line_options.inl.h"
+#undef FLAG
+
+  std::cout << "\nOptions:\n";
+#define OPTION(NAME, TYPE, CLINAME, DEFVAL, HELP) help_option(CLINAME, #TYPE, #DEFVAL, HELP);
+#include "command_line_options.inl.h"
+#undef OPTION
+
   return EXIT_FAILURE;
 }
+
+template <typename T> T parse_option(std::string arg);
+
+template <> std::string parse_option<std::string>(std::string arg) { return arg; }
+template <> int parse_option<int>(std::string arg) { return std::atoi(arg.c_str()); }
 
 #define ARGPARSEASSERT(cond, msg)                                                                  \
   if (!(cond)) {                                                                                   \
@@ -38,6 +68,27 @@ bool parse_args(const std::string &exe, const std::vector<std::string> &args) {
       return false;
     }
 
+#define FLAG(NAME, DEFVAL, FSHORT, FLONG, HELP)                                                    \
+  if (*it == FSHORT or *it == FLONG) {                                                             \
+    cli_opts.NAME = true;                                                                          \
+    it++; \
+    continue; \
+  }
+
+#define OPTION(NAME, TYPE, CLINAME, DEFVAL, HELP)                                                  \
+  if (*it == CLINAME) {                                                                            \
+    it++;                                                                                          \
+    ARGPARSEASSERT(it != args.end(), "Expected argument to follow flag -f" #NAME);                 \
+    cli_opts.NAME = parse_option<TYPE>(*it);                                                       \
+    it++; \
+    continue; \
+  }
+
+#include "command_line_options.inl.h"
+
+#undef FLAG
+#undef OPTION
+
     /* parse positional args */
     else {
       cli_opts.positional_args.emplace_back(*it);
@@ -46,9 +97,6 @@ bool parse_args(const std::string &exe, const std::vector<std::string> &args) {
   }
 
   /* Check validity of command line args. */
-
-  /* Check that we have exatly one positional arg, the input source file. */
-  ARGPARSEASSERT(cli_opts.positional_args.size() == 1, "We only handle one source file atm");
 
   /* Check that all positional args are files that exist */
   for (auto const &fpath : cli_opts.positional_args) {
@@ -62,11 +110,44 @@ bool parse_args(const std::string &exe, const std::vector<std::string> &args) {
   return true;
 }
 
+/* Print the full compilation configuration as YAML */
+void print_cli_opts() {
+  std::cout << "\nCompilation Options:\n"
+    << "  source_files: [ ";
+  auto it = cli_opts.positional_args.begin();
+  while (it != cli_opts.positional_args.end()) {
+    std::cout << *it << (++it == cli_opts.positional_args.end() ? " " : ", ");
+  }
+  std::cout << "]\n";
+
+  std::cout
+#define FLAG(NAME, DEFVAL, FSHORT, FLONG, HELP)                                                    \
+  << "  " << #NAME << ":\n    kind: flag\n    value: " << cli_opts.NAME << "\n"
+#define OPTION(NAME, TYPE, CLINAME, DEFVAL, HELP)                                                  \
+  << "  " << #NAME << ":\n    kind: option\n    value: " << cli_opts.NAME                          \
+  << "\n    type: " << #TYPE << "\n"
+#include "command_line_options.inl.h"
+      ;
+#undef FLAG
+#undef OPTION
+}
+
+#define VERBOSE(X) if (cli_opts.verbose) { X; }
+
 int main(int argc, char **argv) {
   std::string exe(argv[0]);
   std::vector<std::string> args(argv + 1, argv + argc);
+
   if (!parse_args(exe, args)) {
     return help(exe);
   }
+
+  VERBOSE(print_cli_opts());
+
+  for (auto const& source_file : cli_opts.positional_args) {
+    VERBOSE(std::cout << "Lexing source file " << source_file << "\n");
+    auto tokens = lex(source_file);
+  }
+
   return EXIT_SUCCESS;
 }

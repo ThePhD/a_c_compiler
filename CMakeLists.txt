@@ -19,5 +19,6 @@ project(a_c_compiler
 	DESCRIPTION "A C Compiler"
 	LANGUAGES CXX)
 
-set(A_C_COMPILER_INCLUDE_DIRECTORIES "${CMAKE_PROJECT_SOURCE_DIR}/include")
+include_directories("${PROJECT_SOURCE_DIR}/include/a_c_compiler/lex")
+include_directories("${PROJECT_SOURCE_DIR}/include/a_c_compiler/parse")
 add_subdirectory(lib)
