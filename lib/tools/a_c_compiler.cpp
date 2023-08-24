@@ -9,6 +9,7 @@ using namespace std::literals;
 namespace fs = std::filesystem;
 
 #include "lex.h"
+#include "parse.h"
 
 using namespace a_c_compiler;
 
@@ -142,14 +143,25 @@ int main(int argc, char **argv) {
     return help(exe);
   }
 
-  VERBOSE(print_cli_opts());
+  if (cli_opts.verbose) {
+    print_cli_opts();
+  }
 
   for (auto const& source_file : cli_opts.positional_args) {
-    VERBOSE(std::cout << "\nLexing source file " << source_file << "\n");
+    if (cli_opts.verbose) {
+      std::cout << "\nLexing source file " << source_file << "\n";
+    }
+
     auto tokens = lex(source_file);
 
     if (cli_opts.debug_lexer) {
       dump_tokens(tokens);
+    }
+
+    auto *ast_module = parse(tokens);
+
+    if (cli_opts.verbose) {
+      ast_module->dump();
     }
   }
 

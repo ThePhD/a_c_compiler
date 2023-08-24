@@ -18,7 +18,7 @@ static std::vector<file_offset_info> token_source_info;
 
 file_offset_info source_info_for_token(size_t tok_idx) { return token_source_info[tok_idx]; }
 
-void dump_tokens(std::vector<std::tuple<token, file_offset_info>> const &toks) {
+void dump_tokens(token_vector const &toks) {
   size_t id_idx = 0, numlit_idx = 0, strlit_idx = 0;
   static constexpr size_t width = 15;
   std::cout << std::setw(width) << "line:column"
@@ -76,8 +76,8 @@ std::string lexed_numeric_literal(size_t index) { return lexed_numeric_literals[
 std::string lexed_id(size_t index) { return lexed_ids[index]; }
 std::string lexed_string_literal(size_t index) { return lexed_string_literals[index]; }
 
-std::vector<std::tuple<token, file_offset_info>> lex(fs::path const &source_file) {
-  std::vector<std::tuple<token, file_offset_info>> toks;
+token_vector lex(fs::path const &source_file) {
+  token_vector toks;
   toks.reserve(2048);
 
   FILE *fp = fopen(source_file.c_str(), "r");
