@@ -1,5 +1,5 @@
 find_program(
-  FILECHECK_EXE 
+  FILECHECK_EXE
   NAMES
   FileCheck
   FileCheck-12

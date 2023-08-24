@@ -1,0 +1,35 @@
+name: Windows
+
+on: [push, pull_request]
+
+env:
+  CTEST_OUTPUT_ON_FAILURE: 1
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    
+    - name: configure
+      run: |
+        cmake -B build/debug   -D A_C_COMPILER_TESTS=OFF -D A_C_COMPILER_EXAMPLES=ON
+        cmake -B build/release -D A_C_COMPILER_TESTS=OFF -D A_C_COMPILER_EXAMPLES=ON
+
+    - name: build
+      run: |
+        cmake --build build/debug   --config Debug
+        cmake --build build/release --config Release
+
+    - name: test
+      run: |
+        cd build/debug
+        ctest --build-config Debug
+        cd ../..
+        cd build/release
+        ctest --build-config Release
+        cd ../..

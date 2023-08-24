@@ -1,5 +1,5 @@
 int main(int argc, char** argv) {
-  return 0;
+	return 0;
 }
 // CHECK: tok_id: int
 // CHECK-NEXT: tok_id: main
