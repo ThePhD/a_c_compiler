@@ -1,12 +1,14 @@
 #pragma once
+
 #include <filesystem>
 #include <vector>
+#include <cstdint>
 
 namespace a_c_compiler {
 
 	namespace fs = std::filesystem;
 
-	enum token : long int {
+	enum token_id : int32_t {
 #define CHAR_TOKEN(TOK, LIT) TOK = LIT,
 #define TOKEN(TOK, INTVAL) TOK = INTVAL,
 #include "tokens.inl.h"
@@ -19,7 +21,12 @@ namespace a_c_compiler {
 		size_t lineno, column;
 	};
 
-	using token_vector = std::vector<std::tuple<token, file_offset_info>>;
+	struct token {
+		token_id id;
+		file_offset_info source_location;
+	};
+
+	using token_vector = std::vector<token>;
 	void dump_tokens(token_vector const& toks);
 
 	std::string lexed_id(size_t index);

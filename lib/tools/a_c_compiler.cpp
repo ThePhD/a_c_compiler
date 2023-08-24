@@ -168,10 +168,10 @@ int main(int argc, char** argv) {
 			dump_tokens(tokens);
 		}
 
-		auto* ast_module = parse(tokens);
+		auto ast_module = parse(tokens);
 
 		if (cli_opts.verbose) {
-			ast_module->dump();
+			ast_module.dump();
 		}
 	}
 

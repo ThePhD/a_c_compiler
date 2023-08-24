@@ -156,7 +156,7 @@ namespace a_c_compiler {
 			/* Char-like tokens */
 #define CHAR_TOKEN(TOK, LIT) case LIT:
 #include "tokens.inl.h"
-				toks.push_back({ (token)c, { lineno, column } });
+				toks.push_back({ (token_id)c, { lineno, column } });
 				break;
 
 			case '\n':

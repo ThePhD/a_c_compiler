@@ -5,6 +5,6 @@
 
 namespace a_c_compiler {
 
-	ast_module* parse(token_vector const& toks);
+	ast_module parse(token_vector const& toks) noexcept;
 
 } /* namespace a_c_compiler */
