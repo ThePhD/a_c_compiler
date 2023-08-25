@@ -55,7 +55,7 @@ namespace a_c_compiler {
     bool parse_typedef(translation_unit& tu) {
       auto const& tok = current_token();
       m_reporter.report(
-          parser_err::unimplemented_keyword, "<source file>", tok.source_location, "typedef");
+          parser_err::unimplemented_keyword, "", tok.source_location, "typedef");
       return false;
     }
 
