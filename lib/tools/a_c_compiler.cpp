@@ -1,13 +1,14 @@
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
-#include <string>
 #include <sstream>
 #include <string_view>
 #include <vector>
+#include <string>
 
 using namespace std::literals;
 namespace fs = std::filesystem;
+
 
 #include "feature_flag.h"
 #include "lex.h"
@@ -72,11 +73,17 @@ int parse_option<int>(std::string arg) {
 
 void handle_feature_flag(std::string_view arg_str) {
 	assert(arg_str.contains(',') && "expected comma separator to be in feature flag argument");
-	size_t n                  = arg_str.find(',');
+	size_t n = arg_str.find(',');
+	std::size_t num_written;
+
 	std::string_view flag_str = arg_str.substr(0, n);
-	std::string_view bit_str  = arg_str.substr(n + 1);
-	std::size_t flag_value    = std::strtoul(flag_str.data(), nullptr, 10);
-	std::size_t bit_value     = std::strtoul(bit_str.data(), nullptr, 16);
+	std::size_t flag_value    = std::stoul(flag_str.data(), &num_written, 10);
+	assert(num_written && "failed to parse feature flag argument");
+
+	std::string_view bit_str = arg_str.substr(n + 1);
+	std::size_t bit_value    = std::stoul(bit_str.data(), &num_written, 16);
+	assert(num_written && "failed to parse feature flag argument");
+
 	set_feature_flag(flag_value, bit_value);
 }
 
