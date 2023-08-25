@@ -121,7 +121,7 @@ namespace a_c_compiler {
 				break;
 
 			case '\t':
-				toks.push_back({ tok_tab, { lineno, column } });
+				// toks.push_back({ tok_tab, { lineno, column } });
 				break;
 
 				/* Handle comments */

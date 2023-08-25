@@ -9,6 +9,11 @@ FetchContent_Declare(ztd.idk
 	GIT_TAG main)
 FetchContent_MakeAvailable(ztd.idk)
 
+FetchContent_Declare(fmt
+  GIT_REPOSITORY https://github.com/fmtlib/fmt
+  GIT_TAG master)
+FetchContent_MakeAvailable(fmt)
+
 file(GLOB_RECURSE a_c_compiler.fe.sources
      LIST_DIRECTORIES FALSE
      CONFIGURE_DEPENDS
@@ -17,7 +22,7 @@ add_library(a_c_compiler.fe ${a_c_compiler.fe.sources})
 add_library(a_c_compiler::fe ALIAS a_c_compiler.fe)
 target_link_libraries(a_c_compiler.fe
      PUBLIC
-     ztd::idk)
+     ztd::idk fmt::fmt)
 target_compile_definitions(a_c_compiler.fe
      PRIVATE
      _CRT_SECURE_NO_WARNINGS=1

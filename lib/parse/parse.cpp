@@ -3,6 +3,7 @@
 #include "parser_diagnostic.h"
 
 #include <expected>
+#include <optional>
 #include <utility>
 
 namespace a_c_compiler {
@@ -49,7 +50,7 @@ namespace a_c_compiler {
 					// unrecognized token: report and bail!
 					m_reporter.report(
 					     parser_err::unrecognized_token, "", tok.source_location, (int)tok.id);
-					break;
+					return;
 				}
 				auto maybe_err = get_next_token();
 				if (!maybe_err.has_value()) {
