@@ -15,8 +15,8 @@ FLAG(debug_lexer, false, "-L", "-fdebug-lexer", "Dump tokens after lexing phase"
  *
  * (Source name, type, command line name, default value, help message)
  */
-OPTION(example_str_option, std::string, "-fexample-string-option", "example string value",
-     "Dummy option that takes a string argument")
+OPTION(set_feature_flag, std::string, "-fset-feature-flag", "0,0x0",
+     "Manually set a feature flag")
 OPTION(example_int_option, int, "-fexample-int-option", 123,
      "Dummy option that takes an int argument")
 #endif

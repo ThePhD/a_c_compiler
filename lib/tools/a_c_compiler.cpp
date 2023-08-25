@@ -2,12 +2,14 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <string_view>
 #include <vector>
 
 using namespace std::literals;
 namespace fs = std::filesystem;
 
+#include "feature_flag.h"
 #include "lex.h"
 #include "parse.h"
 
@@ -68,6 +70,16 @@ int parse_option<int>(std::string arg) {
 		return false;                       \
 	}
 
+void handle_feature_flag(std::string_view arg_str) {
+	assert(arg_str.contains(',') && "expected comma separator to be in feature flag argument");
+	size_t n                  = arg_str.find(',');
+	std::string_view flag_str = arg_str.substr(0, n);
+	std::string_view bit_str  = arg_str.substr(n + 1);
+	std::size_t flag_value    = std::strtoul(flag_str.data(), nullptr, 10);
+	std::size_t bit_value     = std::strtoul(bit_str.data(), nullptr, 16);
+	set_feature_flag(flag_value, bit_value);
+}
+
 bool parse_args(const std::string& exe, const std::vector<std::string>& args) {
 	auto it = args.begin();
 	while (it != args.end()) {
@@ -77,19 +89,15 @@ bool parse_args(const std::string& exe, const std::vector<std::string>& args) {
 		}
 
 #define FLAG(NAME, DEFVAL, FSHORT, FLONG, HELP) \
-	if (*it == FSHORT or *it == FLONG) {       \
+	else if (*it == FSHORT or *it == FLONG) {  \
 		cli_opts.NAME = true;                 \
-		it++;                                 \
-		continue;                             \
 	}
 
 #define OPTION(NAME, TYPE, CLINAME, DEFVAL, HELP)                                        \
-	if (*it == CLINAME) {                                                               \
+	else if (*it == CLINAME) {                                                          \
 		it++;                                                                          \
 		ARGPARSEASSERT(it != args.end(), "Expected argument to follow flag -f" #NAME); \
 		cli_opts.NAME = parse_option<TYPE>(*it);                                       \
-		it++;                                                                          \
-		continue;                                                                      \
 	}
 
 #include "command_line_options.inl.h"
@@ -100,6 +108,9 @@ bool parse_args(const std::string& exe, const std::vector<std::string>& args) {
 		/* parse positional args */
 		else {
 			cli_opts.positional_args.emplace_back(*it);
+		}
+		if (*it == "-fset-feature-flag") {
+			handle_feature_flag(cli_opts.set_feature_flag);
 		}
 		it++;
 	}
@@ -139,11 +150,6 @@ void print_cli_opts() {
 #undef FLAG
 #undef OPTION
 }
-
-#define VERBOSE(X)           \
-	if (cli_opts.verbose) { \
-		X;                 \
-	}
 
 int main(int argc, char** argv) {
 	std::string exe(argv[0]);

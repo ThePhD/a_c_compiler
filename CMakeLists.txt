@@ -78,8 +78,9 @@ if(A_C_COMPILER_IS_TOP_LEVEL_PROJECT)
 	endif()
 endif()
 
-include_directories("${PROJECT_SOURCE_DIR}/include/a_c_compiler/lex")
-include_directories("${PROJECT_SOURCE_DIR}/include/a_c_compiler/parse")
+foreach(include_dir lex parse global)
+  include_directories("${PROJECT_SOURCE_DIR}/include/a_c_compiler/${include_dir}")
+endforeach()
 
 option(A_C_COMPILER_DOCUMENTATION "Enable build of documentation" OFF)
 option(A_C_COMPILER_DOCUMENTATION_NO_SPHINX "Turn off Sphinx usage (useful for ReadTheDocs builds)" OFF)
