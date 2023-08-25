@@ -9,6 +9,7 @@ CHAR_TOKEN(tok_semicolon, ';')
 CHAR_TOKEN(tok_asterisk, '*')
 CHAR_TOKEN(tok_colon, ':')
 CHAR_TOKEN(tok_comma, ',')
+CHAR_TOKEN(tok_equals_sign, '=')
 
 CHAR_TOKEN(tok_plus, '+')
 CHAR_TOKEN(tok_minus, '-')

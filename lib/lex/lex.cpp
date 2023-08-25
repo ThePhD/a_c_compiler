@@ -163,6 +163,17 @@ namespace a_c_compiler {
 				toks.push_back({ tok_newline, { lineno, column } });
 				break;
 
+      case '"':
+        {
+          toks.push_back({ tok_str_literal, {lineno, column  }});
+          std::string lit = "";
+          while (getc() != '"') {
+            lit += c;
+          }
+          lexed_string_literals.push_back(lit);
+        }
+        break;
+
 				/* Numeric literals */
 			case '0':
 			case '1':

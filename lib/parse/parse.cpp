@@ -43,26 +43,28 @@ namespace a_c_compiler {
 			return {};
 		}
 
-    std::string_view next_id_value() noexcept {
-      id_index++;
-      return current_id_value();
-    }
+		std::string_view next_id_value() noexcept {
+			id_index++;
+			return current_id_value();
+		}
 
-    std::string_view current_id_value() const noexcept {
-      return lexed_id(id_index);
-    }
+		std::string_view current_id_value() const noexcept {
+			return lexed_id(id_index);
+		}
 
-    bool parse_typedef(translation_unit& tu) {
-      auto const& tok = current_token();
-      m_reporter.report(
-          parser_err::unimplemented_keyword, "", tok.source_location, "typedef");
-      return false;
-    }
+#define KEYWORD(keyword)                                                                           \
+	bool parse_##keyword(translation_unit& tu) {                                                  \
+		auto const& tok = current_token();                                                       \
+		m_reporter.report(parser_err::unimplemented_keyword, "", tok.source_location, #keyword); \
+		return false;                                                                            \
+	}
+#include "keywords.inl.h"
+#undef KEYWORD
 
-    /*
-     * \brief Attempt to parse a declaration
-     * \returns true if declaration parse was successful.
-     */
+		/*
+		 * \brief Attempt to parse a declaration
+		 * \returns true if declaration parse was successful.
+		 */
 		bool parse_declaration(translation_unit& tu) noexcept {
 			if (m_toks.empty()) {
 				return false;
@@ -81,11 +83,14 @@ namespace a_c_compiler {
 				const auto tok = this->current_token();
 				switch (tok.id) {
 				case tok_id:
-          id_val = current_id_value();
-          if (id_val == "typedef") {
-            return parse_typedef(tu);
-          }
-          break;
+					id_val = current_id_value();
+#define KEYWORD(keyword)              \
+	if (id_val == #keyword) {        \
+		return parse_##keyword(tu); \
+	}
+#include "keywords.inl.h"
+#undef KEYWORD
+					break;
 
 				default:
 					// unrecognized token: report and bail!
@@ -100,14 +105,14 @@ namespace a_c_compiler {
 					break;
 				}
 			}
-      return false;
+			return false;
 		}
 
 		translation_unit parse_translation_unit() noexcept {
 			translation_unit tu {};
-      while (parse_declaration(tu)) {
-        continue;
-      }
+			while (parse_declaration(tu)) {
+				continue;
+			}
 			return tu;
 		}
 	};
