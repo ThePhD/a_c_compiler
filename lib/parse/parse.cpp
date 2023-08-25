@@ -16,6 +16,10 @@ namespace a_c_compiler {
 		token_vector const& m_toks;
 		parser_diagnostic_reporter& m_reporter;
 
+		/* Which ident are we operating on? This allows us to get a handle to the
+		 * string representation of an id. */
+		std::size_t id_index = 0;
+
 		constexpr parser(std::size_t toks_index, token_vector const& toks,
 		     parser_diagnostic_reporter& reporter) noexcept
 		: m_toks_index(toks_index), m_toks(toks), m_reporter(reporter) {
@@ -39,18 +43,55 @@ namespace a_c_compiler {
 			return {};
 		}
 
-		void parse_declaration(translation_unit& tu) noexcept {
+    std::string_view next_id_value() noexcept {
+      id_index++;
+      return current_id_value();
+    }
+
+    std::string_view current_id_value() const noexcept {
+      return lexed_id(id_index);
+    }
+
+    bool parse_typedef(translation_unit& tu) {
+      auto const& tok = current_token();
+      m_reporter.report(
+          parser_err::unimplemented_keyword, "<source file>", tok.source_location, "typedef");
+      return false;
+    }
+
+    /*
+     * \brief Attempt to parse a declaration
+     * \returns true if declaration parse was successful.
+     */
+		bool parse_declaration(translation_unit& tu) noexcept {
 			if (m_toks.empty()) {
-				return;
+				return false;
 			}
+
+			/* Keep track of first and last token when searching for a declaration.
+			 * Figure out the details later. */
+			auto const& start_token = current_token();
+
+			/* Hold a view of an ident value */
+			std::string_view id_val;
+
+			/* To determine if we're working with a var decl or a function decl, we
+			 * must first try to parse an ident token. */
 			for (;;) {
 				const auto tok = this->current_token();
 				switch (tok.id) {
+				case tok_id:
+          id_val = current_id_value();
+          if (id_val == "typedef") {
+            return parse_typedef(tu);
+          }
+          break;
+
 				default:
 					// unrecognized token: report and bail!
 					m_reporter.report(
 					     parser_err::unrecognized_token, "", tok.source_location, (int)tok.id);
-					return;
+					return false;
 				}
 				auto maybe_err = get_next_token();
 				if (!maybe_err.has_value()) {
@@ -59,11 +100,14 @@ namespace a_c_compiler {
 					break;
 				}
 			}
+      return false;
 		}
 
 		translation_unit parse_translation_unit() noexcept {
 			translation_unit tu {};
-			this->parse_declaration(tu);
+      while (parse_declaration(tu)) {
+        continue;
+      }
 			return tu;
 		}
 	};

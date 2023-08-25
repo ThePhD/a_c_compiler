@@ -76,14 +76,14 @@ namespace a_c_compiler {
 		}
 	}
 
-	std::string lexed_numeric_literal(size_t index) {
-		return lexed_numeric_literals[index];
+	std::string_view lexed_numeric_literal(size_t index) {
+		return lexed_numeric_literals[index].data();
 	}
-	std::string lexed_id(size_t index) {
-		return lexed_ids[index];
+	std::string_view lexed_id(size_t index) {
+		return lexed_ids[index].data();
 	}
-	std::string lexed_string_literal(size_t index) {
-		return lexed_string_literals[index];
+	std::string_view lexed_string_literal(size_t index) {
+		return lexed_string_literals[index].data();
 	}
 
 	token_vector lex(fs::path const& source_file) {
@@ -202,7 +202,7 @@ namespace a_c_compiler {
 				std::string lit = "";
 				lit += c;
 
-				while (std::isalnum(c = fgetc(fp))) {
+				while (std::isalnum(c = fgetc(fp)) or c == '_') {
 					lit += c;
 				}
 				std::ungetc(c, fp);

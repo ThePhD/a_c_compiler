@@ -48,7 +48,6 @@ Cpp11BracedListStyle: false
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterEnum: false
-  AfterStruct: false
   AfterControlStatement: false
   AfterClass: false
   AfterNamespace: false

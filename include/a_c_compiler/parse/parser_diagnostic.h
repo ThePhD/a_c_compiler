@@ -4,8 +4,9 @@
 
 namespace a_c_compiler {
 	enum class parser_diagnostic_id {
-		out_of_tokens,
-		unrecognized_token,
+#define DIAGNOSTIC(SRC_NAME, FMT_STRING) SRC_NAME,
+#include "parser_diagnostic.inl.h"
+#undef DIAGNOSTIC
 	};
 
 	struct parser_diagnostic {
@@ -14,8 +15,9 @@ namespace a_c_compiler {
 	};
 
 	namespace parser_err {
-		inline constexpr const parser_diagnostic out_of_tokens {parser_diagnostic_id::out_of_tokens, "out of tokens"};
-		inline constexpr const parser_diagnostic unrecognized_token {parser_diagnostic_id::unrecognized_token, "unrecognized token {}"};
+#define DIAGNOSTIC(SRC_NAME, FMT_STRING) inline constexpr const parser_diagnostic SRC_NAME {parser_diagnostic_id::SRC_NAME, FMT_STRING};
+#include "parser_diagnostic.inl.h"
+#undef DIAGNOSTIC
 	}
 }
 	

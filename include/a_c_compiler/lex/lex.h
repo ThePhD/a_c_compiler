@@ -29,9 +29,9 @@ namespace a_c_compiler {
 	using token_vector = std::vector<token>;
 	void dump_tokens(token_vector const& toks);
 
-	std::string lexed_id(size_t index);
-	std::string lexed_numeric_literal(size_t index);
-	std::string lexed_string_literal(size_t index);
+	std::string_view lexed_id(size_t index);
+	std::string_view lexed_numeric_literal(size_t index);
+	std::string_view lexed_string_literal(size_t index);
 
 	token_vector lex(fs::path const& source_file);
 } /* namespace a_c_compiler */
