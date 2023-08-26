@@ -38,8 +38,14 @@ namespace a_c_compiler {
 		std::cout << #TOK; \
 		break;
 
+#define KEYWORD_TOKEN(TOK, LIT, KEYWORD) \
+	case TOK:                           \
+		std::cout << #TOK;             \
+		break;
+
 #include "tokens.inl.h"
 #undef CHAR_TOKEN
+#undef KEYWORD_TOKEN
 
 			case tok_block_comment:
 				std::cout << "tok_block_comment";
@@ -69,6 +75,10 @@ namespace a_c_compiler {
 				std::cout << "str_literal: " << lexed_string_literal(strlit_idx++);
 				break;
 
+			case tok_pp_embed:
+				std::cout << "pp_embed_literal";
+				break;
+
 			default:
 				assert(false && "Got invalid token");
 			}
@@ -92,11 +102,11 @@ namespace a_c_compiler {
 
 		FILE* fp =
 #if ZTD_IS_ON(ZTD_LIBVCXX)
-		_wfopen(source_file.c_str(), L"r")
+		     _wfopen(source_file.c_str(), L"r")
 #else
-		std::fopen(source_file.c_str(), "r")
+		     std::fopen(source_file.c_str(), "r")
 #endif
-		;
+		     ;
 		assert(fp && "Couldn't open file");
 		char c;
 		size_t lineno = 0, column = 0;
@@ -158,21 +168,20 @@ namespace a_c_compiler {
 #include "tokens.inl.h"
 				toks.push_back({ (token_id)c, { lineno, column } });
 				break;
+#undef CHAR_TOKEN
 
 			case '\n':
 				toks.push_back({ tok_newline, { lineno, column } });
 				break;
 
-      case '"':
-        {
-          toks.push_back({ tok_str_literal, {lineno, column  }});
-          std::string lit = "";
-          while (getc() != '"') {
-            lit += c;
-          }
-          lexed_string_literals.push_back(lit);
-        }
-        break;
+			case '"': {
+				toks.push_back({ tok_str_literal, { lineno, column } });
+				std::string lit = "";
+				while (getc() != '"') {
+					lit += c;
+				}
+				lexed_string_literals.push_back(lit);
+			} break;
 
 				/* Numeric literals */
 			case '0':
@@ -217,9 +226,18 @@ namespace a_c_compiler {
 					lit += c;
 				}
 				std::ungetc(c, fp);
-
-				lexed_ids.push_back(lit);
-				toks.push_back({ tok_id, foi });
+				if (false) { }
+				// if it matches a keyword's spelling, it's a keyword
+#define KEYWORD_TOKEN(TOK, INTVAL, KEYWORD) \
+	else if (lit == #KEYWORD) {            \
+		toks.push_back({ TOK, foi });     \
+	}
+#include "tokens.inl.h"
+#undef KEYWORD_TOKEN
+				else {
+					lexed_ids.push_back(lit);
+					toks.push_back({ tok_id, foi });
+				}
 			}
 			getc();
 		}

@@ -52,14 +52,14 @@ namespace a_c_compiler {
 			return lexed_id(id_index);
 		}
 
-#define KEYWORD(keyword)                                                                           \
-	bool parse_##keyword(translation_unit& tu) {                                                  \
+#define KEYWORD_TOKEN(TOK, INTVAL, KEYWORD)                                                        \
+	bool parse_##KEYWORD(translation_unit& tu) {                                                  \
 		auto const& tok = current_token();                                                       \
-		m_reporter.report(parser_err::unimplemented_keyword, "", tok.source_location, #keyword); \
+		m_reporter.report(parser_err::unimplemented_keyword, "", tok.source_location, #KEYWORD); \
 		return false;                                                                            \
 	}
-#include "keywords.inl.h"
-#undef KEYWORD
+#include "tokens.inl.h"
+#undef KEYWORD_TOKEN
 
 		/*
 		 * \brief Attempt to parse a declaration
@@ -84,13 +84,12 @@ namespace a_c_compiler {
 				switch (tok.id) {
 				case tok_id:
 					id_val = current_id_value();
-#define KEYWORD(keyword)              \
-	if (id_val == #keyword) {        \
-		return parse_##keyword(tu); \
-	}
-#include "keywords.inl.h"
-#undef KEYWORD
 					break;
+#define KEYWORD_TOKEN(TOK, INTVAL, KEYWORD) \
+	case TOK:                              \
+		return parse_##KEYWORD(tu);
+#include "tokens.inl.h"
+#undef KEYWORD_TOKEN
 
 				default:
 					// unrecognized token: report and bail!

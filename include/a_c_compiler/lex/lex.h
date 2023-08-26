@@ -9,10 +9,12 @@ namespace a_c_compiler {
 	namespace fs = std::filesystem;
 
 	enum token_id : int32_t {
-#define CHAR_TOKEN(TOK, LIT) TOK = LIT,
+#define CHAR_TOKEN(TOK, INTVAL) TOK = INTVAL,
+#define KEYWORD_TOKEN(TOK, INTVAL, KEYWORD) TOK = INTVAL,
 #define TOKEN(TOK, INTVAL) TOK = INTVAL,
 #include "tokens.inl.h"
 #undef CHAR_TOKEN
+#undef KEYWORD_TOKEN
 #undef TOKEN
 	};
 
