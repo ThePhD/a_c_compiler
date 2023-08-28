@@ -85,6 +85,26 @@ option(A_C_COMPILER_BENCHMARKS "Enable build of benchmarks" OFF)
 option(A_C_COMPILER_TESTS "Enable build of tests" OFF)
 
 ## Add dependencies
+# dependencies need to be jailed to prevent
+# variables from escaping: hence the `*_jail` functions!
+function(ztd_idk_dependency_jail)
+	FetchContent_Declare(ztd.idk
+		GIT_REPOSITORY https://github.com/soasis/idk
+		GIT_TAG main)
+	FetchContent_MakeAvailable(ztd.idk)
+	set_property(DIRECTORY "${ztd.idk_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL YES)
+endfunction()
+ztd_idk_dependency_jail()
+
+function(fmt_dependency_jail)
+	FetchContent_Declare(fmt
+		GIT_REPOSITORY https://github.com/fmtlib/fmt
+		GIT_TAG master)
+	FetchContent_MakeAvailable(fmt)
+	set_property(DIRECTORY "${fmt_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL YES)
+endfunction()
+fmt_dependency_jail()
+
 if (A_C_COMPILER_TESTS)
 	enable_testing()
 	function(ctre_dependency_jail)

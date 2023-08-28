@@ -5,16 +5,6 @@
 # All rights reserved.
 # ============================================================================ #
 
-FetchContent_Declare(ztd.idk
-	GIT_REPOSITORY https://github.com/soasis/idk
-	GIT_TAG main)
-FetchContent_MakeAvailable(ztd.idk)
-
-FetchContent_Declare(fmt
-  GIT_REPOSITORY https://github.com/fmtlib/fmt
-  GIT_TAG master)
-FetchContent_MakeAvailable(fmt)
-
 file(GLOB_RECURSE a_c_compiler.fe.sources
      LIST_DIRECTORIES OFF
      CONFIGURE_DEPENDS
