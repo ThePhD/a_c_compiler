@@ -7,9 +7,14 @@
 
 function (a_c_compiler_test_make_file_check_test prefix source_file)
 	get_filename_component(source_name ${source_file} NAME_WE)
+	if (${prefix} STREQUAL "lex")
+		set(ACC_TEST_FLAGS "-fdebug-lexer -fstop-after-phase lex")
+	else ()
+		set(ACC_TEST_FLAGS "-fdebug-lexer")
+	endif()
 	add_test(
 		NAME "a_c_compiler::test::${prefix}::${source_name}"
-		COMMAND "$<TARGET_FILE:a_c_compiler>" -fdebug-lexer "${source_file}" | "$<TARGET_FILE:a_c_compiler::test::file_check>" "${source_file}"
+		COMMAND "$<TARGET_FILE:a_c_compiler>" ${ACC_TEST_FLAGS} "${source_file}" | "$<TARGET_FILE:a_c_compiler::test::file_check>" "${source_file}"
 	)
 endfunction()
 
