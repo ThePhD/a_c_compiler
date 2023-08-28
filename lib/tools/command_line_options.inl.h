@@ -15,8 +15,9 @@ FLAG(debug_lexer, false, "-L", "-fdebug-lexer", "Dump tokens after lexing phase"
  *
  * (Source name, type, command line name, default value, help message)
  */
-OPTION(set_feature_flag, std::string, "-fset-feature-flag", "0,0x0",
-     "Manually set a feature flag")
+OPTION(set_feature_flag, std::string, "-fset-feature-flag", "0,0x0", "Manually set a feature flag")
+OPTION(stop_after_phase, std::string, "-fstop-after-phase", "",
+     "Stop compilation after given phase is complete")
 OPTION(example_int_option, int, "-fexample-int-option", 123,
      "Dummy option that takes an int argument")
 #endif

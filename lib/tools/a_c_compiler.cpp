@@ -181,11 +181,19 @@ int main(int argc, char** argv) {
 			dump_tokens(tokens);
 		}
 
+    if (cli_opts.stop_after_phase == "lex")  {
+      return EXIT_SUCCESS;
+    }
+
 		auto ast_module = parse(tokens);
 
 		if (cli_opts.verbose) {
 			ast_module.dump();
 		}
+
+    if (cli_opts.stop_after_phase == "parse")  {
+      return EXIT_SUCCESS;
+    }
 	}
 
 	return EXIT_SUCCESS;

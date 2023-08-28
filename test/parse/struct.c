@@ -5,3 +5,4 @@ struct s {
 typedef struct {
   bool field;
 } var;
+// CHECK: unimplemented keyword 'struct'
