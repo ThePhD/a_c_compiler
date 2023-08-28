@@ -1,3 +1,10 @@
+// =============================================================================
+// a_c_compiler
+//
+// © Asher Mancinelli & JeanHeyd "ThePhD" Meneide
+// All rights reserved.
+// ============================================================================ //
+
 #include "parse.h"
 #include "parser_diagnostic_reporter.h"
 #include "parser_diagnostic.h"

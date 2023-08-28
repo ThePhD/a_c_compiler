@@ -1,3 +1,10 @@
+// =============================================================================
+// a_c_compiler
+//
+// © Asher Mancinelli & JeanHeyd "ThePhD" Meneide
+// All rights reserved.
+// ============================================================================ //
+
 #include "lex.h"
 #include <cassert>
 #include <iomanip>

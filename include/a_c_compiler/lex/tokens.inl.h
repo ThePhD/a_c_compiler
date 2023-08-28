@@ -1,3 +1,10 @@
+// =============================================================================
+// a_c_compiler
+//
+// © Asher Mancinelli & JeanHeyd "ThePhD" Meneide
+// All rights reserved.
+// ============================================================================ //
+
 #ifdef CHAR_TOKEN
 CHAR_TOKEN(tok_l_paren, '(')
 CHAR_TOKEN(tok_r_paren, ')')

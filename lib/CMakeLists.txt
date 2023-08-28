@@ -1,8 +1,9 @@
 # =============================================================================
-#
 # a_c_compiler
 #
-# ============================================================================>
+# © Asher Mancinelli & JeanHeyd "ThePhD" Meneide
+# All rights reserved.
+# ============================================================================ #
 
 FetchContent_Declare(ztd.idk
 	GIT_REPOSITORY https://github.com/soasis/idk
@@ -15,12 +16,12 @@ FetchContent_Declare(fmt
 FetchContent_MakeAvailable(fmt)
 
 file(GLOB_RECURSE a_c_compiler.fe.sources
-     LIST_DIRECTORIES FALSE
+     LIST_DIRECTORIES OFF
      CONFIGURE_DEPENDS
      lex/*.cpp parse/*.cpp)
 
 file(GLOB_RECURSE a_c_compiler.global.sources
-     LIST_DIRECTORIES FALSE
+     LIST_DIRECTORIES OFF
      CONFIGURE_DEPENDS
      global/*.cpp)
 
@@ -31,7 +32,8 @@ foreach(library fe global)
   add_library(a_c_compiler::${library} ALIAS a_c_compiler.${library})
   target_link_libraries(a_c_compiler.${library}
        PUBLIC
-       ztd::idk fmt::fmt
+       ztd::idk
+	  fmt::fmt
   )
   target_compile_definitions(a_c_compiler.${library}
        PRIVATE

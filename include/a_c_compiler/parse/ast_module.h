@@ -1,4 +1,11 @@
+// =============================================================================
+// a_c_compiler
+//
+// © Asher Mancinelli & JeanHeyd "ThePhD" Meneide
+// All rights reserved.
+// ============================================================================ //
 #pragma once
+
 #include "ast_node.h"
 
 #include <span>
@@ -37,8 +44,8 @@ namespace a_c_compiler {
 		tc_data_pointer,
 		tc_function_pointer,
 		tc_nullptr,
-		tc_auto, // inferred type
-		tc__Padding, // extension: struct foo { int meow; _Padding(16) padding; uint16_t bark; };
+		tc_auto,      // inferred type
+		tc__Padding,  // extension: struct foo { int meow; _Padding(16) padding; uint16_t bark; };
 		tc_array_span // extension: array span
 	};
 	enum class qualifier : unsigned char {
@@ -58,21 +65,23 @@ namespace a_c_compiler {
 		scs_typedef      = 0b00000100000,
 	};
 	using sc_specifier = storage_class_specifier;
-	
+
 	struct type {
-		constexpr type () noexcept = default;
-		constexpr type (const type&) noexcept = default;
-		constexpr type (type&&) noexcept = default;
-		constexpr type& operator= (const type&) noexcept = default;
-		constexpr type& operator= (type&&) noexcept = default;
+		constexpr type() noexcept                       = default;
+		constexpr type(const type&) noexcept            = default;
+		constexpr type(type&&) noexcept                 = default;
+		constexpr type& operator=(const type&) noexcept = default;
+		constexpr type& operator=(type&&) noexcept      = default;
 
-		constexpr explicit type (std::size_t ref_index) noexcept : m_ref(ref_index) {}
+		constexpr explicit type(std::size_t ref_index) noexcept : m_ref(ref_index) {
+		}
 
-		constexpr std::size_t index () const noexcept {
+		constexpr std::size_t index() const noexcept {
 			return m_ref;
 		}
+
 	private:
-		std:: uint_least32_t m_ref;
+		std::uint_least32_t m_ref;
 	};
 
 	struct type_data {
@@ -82,25 +91,33 @@ namespace a_c_compiler {
 		std::size_t bit_size; // for _BitInt and _Padding and friends
 		std::vector<type> sub_types;
 
-		type& pointee_type () {
-			ZTD_ASSERT_MESSAGE("Must be a pointer type.", category == type_category::tc_data_pointer || category == type_category::tc_function_pointer);
-			ZTD_ASSERT_MESSAGE("There must be at least 1 available sub-type.", sub_types.size() == 1);
+		type& pointee_type() {
+			ZTD_ASSERT_MESSAGE("Must be a pointer type.",
+			     category == type_category::tc_data_pointer
+			          || category == type_category::tc_function_pointer);
+			ZTD_ASSERT_MESSAGE(
+			     "There must be at least 1 available sub-type.", sub_types.size() == 1);
 			return sub_types[0];
 		}
 
-		type& element_type () {
-			ZTD_ASSERT_MESSAGE("Must be an array type.", category == type_category::tc_array || category == type_category::tc_vla || category == type_category::tc_array_span);
-			ZTD_ASSERT_MESSAGE("There must be at least 1 available sub-type.", sub_types.size() == 1);
+		type& element_type() {
+			ZTD_ASSERT_MESSAGE("Must be an array type.",
+			     category == type_category::tc_array || category == type_category::tc_vla
+			          || category == type_category::tc_array_span);
+			ZTD_ASSERT_MESSAGE(
+			     "There must be at least 1 available sub-type.", sub_types.size() == 1);
 			return sub_types[0];
 		}
 
-		std::span<type> member_types () {
-			ZTD_ASSERT_MESSAGE("Must be a structure or union type.", category == type_category::tc_struct || category == type_category::tc_union);
+		std::span<type> member_types() {
+			ZTD_ASSERT_MESSAGE("Must be a structure or union type.",
+			     category == type_category::tc_struct || category == type_category::tc_union);
 			return sub_types;
 		}
 
-		type& return_type () {
-			ZTD_ASSERT_MESSAGE("Must be a function type.", category == type_category::tc_function);
+		type& return_type() {
+			ZTD_ASSERT_MESSAGE(
+			     "Must be a function type.", category == type_category::tc_function);
 			ZTD_ASSERT_MESSAGE("Must have at least one type.", sub_types.size() >= 1);
 			// Return Type + Parameter Layout
 			// [ R | P | P | P ]
@@ -110,8 +127,9 @@ namespace a_c_compiler {
 			return sub_types[0];
 		}
 
-		std::span<type> parameter_types () {
-			ZTD_ASSERT_MESSAGE("Must be a function type.", category == type_category::tc_function);
+		std::span<type> parameter_types() {
+			ZTD_ASSERT_MESSAGE(
+			     "Must be a function type.", category == type_category::tc_function);
 			ZTD_ASSERT_MESSAGE("Must have at least one type.", sub_types.size() >= 1);
 			// Return Type + Parameter Layout
 			// [ R | P | P | P ]
@@ -139,7 +157,7 @@ namespace a_c_compiler {
 		std::size_t alignment;
 		std::vector<attribute> attributes;
 		std::vector<member_declaration> members;
-	 };
+	};
 	struct parameter_declaration {
 		type t;
 	};
@@ -161,19 +179,10 @@ namespace a_c_compiler {
 		compound_statement body;
 	};
 
-	using declaration = std::variant<
-		function_declaration,
-		struct_declaration,
-		static_assert_declaration,
-		operator_declaration,
-		alias_declaration,
-		statement
-	>;
+	using declaration = std::variant<function_declaration, struct_declaration,
+	     static_assert_declaration, operator_declaration, alias_declaration, statement>;
 
-	using external_declaration = std::variant<
-		function_definition,
-		declaration
-	>;
+	using external_declaration = std::variant<function_definition, declaration>;
 
 	struct translation_unit {
 		std::vector<external_declaration> declarations;

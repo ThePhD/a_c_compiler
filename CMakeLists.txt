@@ -1,11 +1,13 @@
 # =============================================================================
-#
 # a_c_compiler
 #
-# ============================================================================>
+# © Asher Mancinelli & JeanHeyd "ThePhD" Meneide
+# All rights reserved.
+# ============================================================================ #
 
 cmake_minimum_required(VERSION 3.25)
 
+include(CMakeDependentOption)
 include(FetchContent)
 FetchContent_Declare(ztd.cmake
 	GIT_REPOSITORY https://github.com/soasis/cmake
@@ -82,8 +84,26 @@ option(A_C_COMPILER_EXAMPLES "Enable build of examples" OFF)
 option(A_C_COMPILER_BENCHMARKS "Enable build of benchmarks" OFF)
 option(A_C_COMPILER_TESTS "Enable build of tests" OFF)
 
-add_subdirectory(lib)
+## Add dependencies
 if (A_C_COMPILER_TESTS)
 	enable_testing()
+	function(ctre_dependency_jail)
+		# ctre
+		set(BUILD_TESTING OFF)
+		FetchContent_Declare(ctre
+			GIT_REPOSITORY https://github.com/hanickadot/compile-time-regular-expressions.git
+			GIT_TAG main
+			GIT_SHALLOW ON)
+		FetchContent_MakeAvailable(ctre)
+		set_property(DIRECTORY "${ctre_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL YES)
+	endfunction()
+	ctre_dependency_jail()
+endif()
+
+## Add executables, components, and libraries
+# a_c_compiler frontend libraries/executable
+add_subdirectory(lib)
+if (A_C_COMPILER_TESTS)
+	# a_c_compiler tests
 	add_subdirectory(test)
 endif()
