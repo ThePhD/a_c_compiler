@@ -169,11 +169,10 @@ int main(int argc, char* argv[]) {
 
 	// Run CTRE to get all the targets we need to search for
 	constexpr const auto check_regex = ctre::range<R"(//\h*+(?:CHECK(-NEXT)?):\h*+([^\v]++)\v++)">;
-	auto matches                     = check_regex(match_file);
 
 	std::size_t potential_checks = 0;
 	std::vector<check_chain> check_chains {};
-	for (auto [whole_match, first_group, expected] : matches) {
+	for (auto [whole_match, first_group, expected] : check_regex(match_file)) {
 		++potential_checks;
 		check_style style = first_group ? check_style::next : check_style::first;
 		if (first_group) {
