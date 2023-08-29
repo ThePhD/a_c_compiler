@@ -8,7 +8,7 @@
 file(GLOB_RECURSE lex_test_sources
 	LIST_DIRECTORIES OFF
 	CONFIGURE_DEPENDS
-	"*.c")
+	*.c)
 foreach(test_source_file ${lex_test_sources})
-  a_c_compiler_test_make_file_check_test(parse ${test_source_file})
+  a_c_compiler_test_make_file_check_lex_test(parse ${test_source_file})
 endforeach()

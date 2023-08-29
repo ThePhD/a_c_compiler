@@ -5,9 +5,12 @@
 // All rights reserved.
 // ============================================================================ //
 
+#include <ztd/idk/assert.hpp>
+
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <string_view>
 #include <vector>
@@ -32,7 +35,7 @@ static struct {
 	std::vector<fs::path> positional_args;
 } cli_opts;
 
-int help(std::string_view exe) {
+int help_with(std::string_view exe, int return_code) noexcept {
 	static constexpr size_t width = 25;
 	const auto help_flag = [=](std::string f_short, std::string f_long, const char* help) {
 		const auto flag = f_short + (f_short.empty() ? "" : " | ") + f_long;
@@ -57,26 +60,24 @@ int help(std::string_view exe) {
 #include "command_line_options.inl.h"
 #undef OPTION
 
-	return EXIT_FAILURE;
+	return return_code;
+}
+
+int help(std::string_view exe) noexcept {
+	return help_with(exe, EXIT_FAILURE);
 }
 
 template <typename T>
-T parse_option(std::string arg);
+T parse_option(std::string arg) noexcept;
 
 template <>
-std::string parse_option<std::string>(std::string arg) {
+std::string parse_option<std::string>(std::string arg) noexcept {
 	return arg;
 }
 template <>
-int parse_option<int>(std::string arg) {
+int parse_option<int>(std::string arg) noexcept {
 	return std::atoi(arg.c_str());
 }
-
-#define ARGPARSEASSERT(cond, msg)             \
-	if (!(cond)) {                           \
-		std::cout << "\n" << msg << "\n\n"; \
-		return false;                       \
-	}
 
 void handle_feature_flag(std::string_view arg_str) {
 	assert(arg_str.contains(',') && "expected comma separator to be in feature flag argument");
@@ -107,11 +108,11 @@ bool parse_args(const std::string& exe, const std::vector<std::string>& args) {
 		cli_opts.NAME = true;                 \
 	}
 
-#define OPTION(NAME, TYPE, CLINAME, DEFVAL, HELP)                                        \
-	else if (*it == CLINAME) {                                                          \
-		it++;                                                                          \
-		ARGPARSEASSERT(it != args.end(), "Expected argument to follow flag -f" #NAME); \
-		cli_opts.NAME = parse_option<TYPE>(*it);                                       \
+#define OPTION(NAME, TYPE, CLINAME, DEFVAL, HELP)                                            \
+	else if (*it == CLINAME) {                                                              \
+		it++;                                                                              \
+		ZTD_ASSERT_MESSAGE("Expected argument to follow flag -f" #NAME, it != args.end()); \
+		cli_opts.NAME = parse_option<TYPE>(*it);                                           \
 	}
 
 #include "command_line_options.inl.h"
@@ -133,11 +134,14 @@ bool parse_args(const std::string& exe, const std::vector<std::string>& args) {
 
 	/* Check that all positional args are files that exist */
 	for (auto const& fpath : cli_opts.positional_args) {
-		ARGPARSEASSERT(fs::exists(fpath), "Expected source file to exist!");
+		if (!fs::exists(fpath)) {
+			std::cerr << "[error] could not find input file \"" << fpath << "\"\n";
+			return EXIT_FAILURE;
+		}
 		const auto ty = fs::status(fpath).type();
 		using ft      = fs::file_type;
-		ARGPARSEASSERT(ty == ft::regular or ty == ft::symlink,
-		     "Expected source file to be a regular file or a symlink!");
+		ZTD_ASSERT_MESSAGE("Expected source file to be a regular file or a symlink!",
+		     ty == ft::regular or ty == ft::symlink);
 	}
 
 	return true;
@@ -177,6 +181,9 @@ int main(int argc, char** argv) {
 		print_cli_opts();
 	}
 
+	bool failed_lexer_output = false;
+	bool failed_parse_output = false;
+
 	for (auto const& source_file : cli_opts.positional_args) {
 		if (cli_opts.verbose) {
 			std::cout << "\nLexing source file " << source_file << "\n";
@@ -185,12 +192,33 @@ int main(int argc, char** argv) {
 		auto tokens = lex(source_file);
 
 		if (cli_opts.debug_lexer) {
-			dump_tokens(tokens);
+			const bool write_lex_to_stdout = cli_opts.lex_output_file.empty();
+			if (cli_opts.verbose) {
+				std::cout << "Dumping tokens to "
+				          << (write_lex_to_stdout ? "standard output"
+				                                  : cli_opts.lex_output_file.c_str())
+				          << "\n";
+			}
+
+			if (write_lex_to_stdout) {
+				dump_tokens(tokens);
+			}
+			else {
+				std::ofstream lex_output_stream(cli_opts.lex_output_file.c_str());
+				if (lex_output_stream) {
+					dump_tokens_into(tokens, lex_output_stream);
+				}
+				else {
+					std::cerr << "cannot write to lex output file \""
+					          << cli_opts.lex_output_file << "\"\n";
+					failed_lexer_output = true;
+				}
+			}
 		}
 
-    if (cli_opts.stop_after_phase == "lex")  {
-      return EXIT_SUCCESS;
-    }
+		if (cli_opts.stop_after_phase == "lex") {
+			return failed_lexer_output ? EXIT_FAILURE : EXIT_SUCCESS;
+		}
 
 		auto ast_module = parse(tokens);
 
@@ -198,9 +226,9 @@ int main(int argc, char** argv) {
 			ast_module.dump();
 		}
 
-    if (cli_opts.stop_after_phase == "parse")  {
-      return EXIT_SUCCESS;
-    }
+		if (cli_opts.stop_after_phase == "parse") {
+			return failed_parse_output || failed_lexer_output ? EXIT_FAILURE : EXIT_SUCCESS;
+		}
 	}
 
 	return EXIT_SUCCESS;

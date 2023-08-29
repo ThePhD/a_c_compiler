@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <vector>
 #include <cstdint>
+#include <iosfwd>
 
 namespace a_c_compiler {
 
@@ -36,11 +37,12 @@ namespace a_c_compiler {
 	};
 
 	using token_vector = std::vector<token>;
-	void dump_tokens(token_vector const& toks);
+	void dump_tokens_into(token_vector const& toks, std::ostream& output_stream) noexcept;
+	void dump_tokens(token_vector const& toks) noexcept;
 
-	std::string_view lexed_id(size_t index);
-	std::string_view lexed_numeric_literal(size_t index);
-	std::string_view lexed_string_literal(size_t index);
+	std::string_view lexed_id(size_t index) noexcept;
+	std::string_view lexed_numeric_literal(size_t index) noexcept;
+	std::string_view lexed_string_literal(size_t index) noexcept;
 
-	token_vector lex(fs::path const& source_file);
+	token_vector lex(fs::path const& source_file) noexcept;
 } /* namespace a_c_compiler */

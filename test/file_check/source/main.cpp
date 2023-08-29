@@ -40,43 +40,119 @@ using check_chain  = std::vector<check_action>;
 
 int main(int argc, char* argv[]) {
 	if (argc < 2) {
-		std::cerr << "[error] file_check requires at least 1 argument, which is the source file "
-		             "present."
-		          << std::endl;
+		std::cerr
+		     << "[error] file_check requires at least 1 argument, which is the source match_file "
+		        "present."
+		     << std::endl;
 		return 127;
 	}
-	std::string_view file_name = argv[1];
-	std::string file           = "";
-	std::string search_space   = "";
-	{
-		std::ifstream file_stream(file_name.data(), std::ios::binary);
-		if (file_stream) {
-			file_stream >> std::noskipws;
-			std::istreambuf_iterator<char> file_stream_first(file_stream);
-			std::istreambuf_iterator<char> file_stream_last {};
-			file.append(file_stream_first, file_stream_last);
+	std::string_view match_file_name = argv[1];
+	int argument_index               = 2;
+	std::string input_file_name      = "";
+	std::string match_file           = "";
+	std::string input                = "";
+	bool verbose                     = false;
+
+	constexpr std::string_view verbose_flag_name    = "--verbose";
+	constexpr std::string_view input_file_flag_name = "--input-file";
+	constexpr std::string_view end_of_flags_name    = "--";
+	constexpr std::size_t input_file_flag_size      = input_file_flag_name.size();
+
+	for (; argument_index < argc; ++argument_index) {
+		std::string_view current_arg = argv[argument_index];
+		if (current_arg.starts_with(input_file_flag_name)) {
+			// is it `=` style?
+			if (current_arg.size() > input_file_flag_size
+			     && current_arg[input_file_flag_size] == '=') {
+				// `=` style
+				input_file_name = current_arg.substr(input_file_flag_size + 1);
+			}
+			else {
+				// non `=` style
+				if (current_arg != input_file_flag_name) { }
+				// after verifying, take from second arg
+				if (argument_index + 1 >= argc) {
+					// not enough arguments; bail
+					std::cerr << "[error] file_check `--input-file` flag requires a second "
+					             "argument with the input file"
+					          << std::endl;
+					return 125;
+				}
+				input_file_name = argv[argument_index + 1];
+				// increment current index to ensure we do not double back
+				++argument_index;
+			}
+		}
+		else if (current_arg == verbose_flag_name) {
+			verbose = true;
+		}
+		else if (current_arg == end_of_flags_name) {
+			// stop processing, exactly where we are
+			++argument_index;
+			break;
 		}
 		else {
-			std::cerr << "[error] file_check could not read the file \"" << file_name << "\""
-			          << std::endl;
-			return 126;
+			// all unrecognized data is passed through...
+			break;
 		}
 	}
 
-	if (argc > 2) {
-		for (int i = 2; i < argc; ++i) {
+	{
+		std::ifstream match_file_stream(match_file_name.data(), std::ios::binary);
+		if (match_file_stream) {
+			match_file_stream >> std::noskipws;
+			std::istreambuf_iterator<char> file_stream_first(match_file_stream);
+			std::istreambuf_iterator<char> file_stream_last {};
+			match_file.append(file_stream_first, file_stream_last);
+		}
+		else {
+			std::cerr << "[error] file_check could not read the match file \"" << match_file_name
+			          << "\"" << std::endl;
+			return 63;
+		}
+	}
+
+	if (input_file_name.empty()) {
+		const int first_argument_index = argument_index;
+		for (int i = argument_index; i < argc; ++i) {
 			std::string_view current_arg(argv[i]);
-			if (i > 2) {
+			if (i > first_argument_index) {
 				// emulate some kind of whitespace?
-				// TODO: command-line accurate simulation of given whitespace during argument
-				// dump...
-				search_space += " ";
+				// TODO: command-line accurate simulation of given whitespace during
+				// argument dump...
+				input += " ";
 			}
-			search_space += current_arg;
+			input += current_arg;
+		}
+	}
+	else {
+		std::ifstream input_file_stream(input_file_name.data(), std::ios::binary);
+		if (input_file_stream) {
+			input_file_stream >> std::noskipws;
+			std::istreambuf_iterator<char> file_stream_first(input_file_stream);
+			std::istreambuf_iterator<char> file_stream_last {};
+			input_file_name.append(file_stream_first, file_stream_last);
+		}
+		else {
+			std::cerr << "[error] file_check could not read the input file \"" << input_file_name
+			          << "\"" << std::endl;
+			return 62;
 		}
 	}
 
-	// File checks can be singular in nature, e.g.
+	if (verbose) {
+		std::cout << "[info] using input data consumed from\n\t";
+		if (input_file_name.empty()) {
+			std::cout << "standard output";
+		}
+		else {
+			std::cout << "file \"" << input_file_name << "\"";
+		}
+		std::cout << "\nthat will be checked with directives found within file\n\t\""
+		          << match_file_name << "\"" << std::endl;
+	}
+
+	// match file checks can be singular in nature, e.g.
 	//
 	// CHECK: bark
 	// CHECK: woof
@@ -93,10 +169,12 @@ int main(int argc, char* argv[]) {
 
 	// Run CTRE to get all the targets we need to search for
 	constexpr const auto check_regex = ctre::range<R"(//\h*+(?:CHECK(-NEXT)?):\h*+([^\v]++)\v++)">;
-	auto matches                     = check_regex(file);
+	auto matches                     = check_regex(match_file);
 
+	std::size_t potential_checks = 0;
 	std::vector<check_chain> check_chains {};
 	for (auto [whole_match, first_group, expected] : matches) {
+		++potential_checks;
 		check_style style = first_group ? check_style::next : check_style::first;
 		if (first_group) {
 			if (check_chains.empty() || check_chains.back().empty()) {
@@ -104,7 +182,7 @@ int main(int argc, char* argv[]) {
 				std::cerr << "[error] there was a `CHECK-NEXT` that was not preceeded by a "
 				             "`CHECK`:\n"
 				          << whole_match << std::endl;
-				return 125;
+				return 61;
 			}
 		}
 		else {
@@ -132,25 +210,37 @@ int main(int argc, char* argv[]) {
 		     });
 	}
 
+
+	if (verbose) {
+		std::cout << "[info] produced " << potential_checks
+		          << " matches from the match file to check!" << std::endl;
+	}
+
+
 	for (std::size_t current_check_chain_index = 0;
 	     current_check_chain_index < check_chains.size(); ++current_check_chain_index) {
 		const auto& current_check_chain = check_chains[current_check_chain_index];
-		// check a specific chain, subset file as we go
-		std::string_view remaining_file = file;
+		// check a specific chain, subset match_file as we go
+		std::string_view remaining_file = match_file;
 		for (std::size_t current_check_index = 0;
 		     current_check_index < current_check_chain.size(); ++current_check_index) {
 			const auto& current_check = current_check_chain[current_check_index];
-			const auto check_result   = current_check(file, remaining_file);
+			const auto check_result   = current_check(match_file, remaining_file);
 			if (!check_result.successful) {
 				std::cerr << "[fail] ❌ check failed\n"
 				          << to_string_view(check_result.style) << ": "
 				          << check_result.check_text << std::endl;
 				return 1;
 			}
+			else if (verbose) {
+				std::cout << "[pass] ✅ check passed\n"
+				          << to_string_view(check_result.style) << ": "
+				          << check_result.check_text << std::endl;
+			}
 			remaining_file = check_result.remaining_file;
 		}
 		// when the loop ends and we go back to the top, we reset `remaining_file`,
-		// which means we effectively check the whole file again to find the match we want.
+		// which means we effectively check the whole match_file again to find the match we want.
 		// this should keep our checks running normally and nominally.
 	}
 

@@ -25,6 +25,9 @@ FLAG(debug_lexer, false, "-L", "-fdebug-lexer", "Dump tokens after lexing phase"
 OPTION(set_feature_flag, std::string, "-fset-feature-flag", "0,0x0", "Manually set a feature flag")
 OPTION(stop_after_phase, std::string, "-fstop-after-phase", "",
      "Stop compilation after given phase is complete")
+OPTION(output_file, std::string, "--output-file", "", "The file to write output into.")
+OPTION(
+     lex_output_file, std::string, "--lex-output-file", "", "The file to write lexer output into.")
 OPTION(example_int_option, int, "-fexample-int-option", 123,
      "Dummy option that takes an int argument")
 #endif

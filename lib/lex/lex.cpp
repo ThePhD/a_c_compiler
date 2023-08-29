@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <ostream>
 
 #include <ztd/idk/version.hpp>
 
@@ -29,25 +30,25 @@ namespace a_c_compiler {
 		return token_source_info[tok_idx];
 	}
 
-	void dump_tokens(token_vector const& toks) {
+	void dump_tokens_into(token_vector const& toks, std::ostream& output_stream) noexcept {
 		size_t id_idx = 0, numlit_idx = 0, strlit_idx = 0;
 		static constexpr size_t width = 15;
-		std::cout << std::setw(width) << "line:column"
-		          << " | token\n";
+		output_stream << std::setw(width) << "line:column"
+		              << " | token\n";
 		for (auto [t, foi] : toks) {
 			std::stringstream ss;
 			ss << foi.lineno << ":" << foi.column;
-			std::cout << std::setw(width) << ss.str() << " | ";
+			output_stream << std::setw(width) << ss.str() << " | ";
 			switch (t) {
 
-#define CHAR_TOKEN(TOK, LIT) \
-	case TOK:               \
-		std::cout << #TOK; \
+#define CHAR_TOKEN(TOK, LIT)     \
+	case TOK:                   \
+		output_stream << #TOK; \
 		break;
 
 #define KEYWORD_TOKEN(TOK, LIT, KEYWORD) \
 	case TOK:                           \
-		std::cout << #TOK;             \
+		output_stream << #TOK;         \
 		break;
 
 #include "tokens.inl.h"
@@ -55,55 +56,59 @@ namespace a_c_compiler {
 #undef KEYWORD_TOKEN
 
 			case tok_block_comment:
-				std::cout << "tok_block_comment";
+				output_stream << "tok_block_comment";
 				break;
 
 			case tok_line_comment:
-				std::cout << "tok_line_comment";
+				output_stream << "tok_line_comment";
 				break;
 
 			case tok_newline:
-				std::cout << "tok_newline";
+				output_stream << "tok_newline";
 				break;
 
 			case tok_tab:
-				std::cout << "tok_tab";
+				output_stream << "tok_tab";
 				break;
 
 			case tok_id:
-				std::cout << "tok_id: " << lexed_id(id_idx++);
+				output_stream << "tok_id: " << lexed_id(id_idx++);
 				break;
 
 			case tok_num_literal:
-				std::cout << "tok_num_literal: " << lexed_numeric_literal(numlit_idx++);
+				output_stream << "tok_num_literal: " << lexed_numeric_literal(numlit_idx++);
 				break;
 
 			case tok_str_literal:
-				std::cout << "str_literal: " << lexed_string_literal(strlit_idx++);
+				output_stream << "str_literal: " << lexed_string_literal(strlit_idx++);
 				break;
 
 			case tok_pp_embed:
-				std::cout << "pp_embed_literal";
+				output_stream << "pp_embed_literal";
 				break;
 
 			default:
 				assert(false && "Got invalid token");
 			}
-			std::cout << "\n";
+			output_stream << "\n";
 		}
 	}
 
-	std::string_view lexed_numeric_literal(size_t index) {
+	void dump_tokens(token_vector const& toks) noexcept {
+		dump_tokens_into(toks, std::cout);
+	}
+
+	std::string_view lexed_numeric_literal(size_t index) noexcept {
 		return lexed_numeric_literals[index].data();
 	}
-	std::string_view lexed_id(size_t index) {
+	std::string_view lexed_id(size_t index) noexcept {
 		return lexed_ids[index].data();
 	}
-	std::string_view lexed_string_literal(size_t index) {
+	std::string_view lexed_string_literal(size_t index) noexcept {
 		return lexed_string_literals[index].data();
 	}
 
-	token_vector lex(fs::path const& source_file) {
+	token_vector lex(fs::path const& source_file) noexcept {
 		token_vector toks;
 		toks.reserve(2048);
 
