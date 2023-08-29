@@ -68,30 +68,108 @@ namespace a_c_compiler {
 #include "tokens.inl.h"
 #undef KEYWORD_TOKEN
 
+		bool parse_attribute_specifier_sequence(translation_unit& tu, function_definition& fd) {
+			return false;
+		}
+
+		bool parse_storage_class_specifier(translation_unit& tu, function_definition& fd) {
+			return false;
+		}
+		bool parse_type_specifier_qualifier(translation_unit& tu, function_definition& fd) {
+			return false;
+		}
+		bool parse_function_specifier(translation_unit& tu, function_definition& fd) {
+			return false;
+		}
+
+		/*
+		 * declaration-specifier ::=
+		 *    storage-class-specifier
+		 *    | type-specifier-qualifier
+		 *    | function-specifier
+		 */
+		bool parse_declaration_specifier(translation_unit& tu, function_definition& fd) {
+			if (parse_storage_class_specifier(tu, fd))
+				return true;
+
+			if (parse_type_specifier_qualifier(tu, fd))
+				return true;
+
+			if (parse_function_specifier(tu, fd))
+				return true;
+
+			return false;
+		}
+
+		/*
+		 * declaration-specifiers ::=
+		 *    declaration-specifier attribute-specifier-sequence?
+		 *    | declaration-specifier declaration-specifiers
+		 */
+		bool parse_declaration_specifiers(translation_unit& tu, function_definition& fd) {
+			return false;
+		}
+
+		bool parse_declarator(translation_unit& tu, function_definition& fd) {
+			return false;
+		}
+
+		bool parse_function_body(translation_unit& tu, function_definition& fd) {
+			return false;
+		}
+
+		/*
+		 * function-definition ::=
+		 *    attribute-specifier-sequence? declaration-specifiers declarator function-body
+		 */
+		bool parse_function_definition(translation_unit& tu) {
+			function_definition fd;
+
+			/* attr specs are optional, so don't bail if we don't find any */
+			parse_attribute_specifier_sequence(tu, fd);
+
+			if (!parse_declaration_specifiers(tu, fd))
+				return false;
+
+			if (!parse_declarator(tu, fd))
+				return false;
+
+			if (!parse_function_body(tu, fd))
+				return false;
+
+			return true;
+		}
+
+    bool parse_declaration(translation_unit& tu) {
+      return false;
+    }
+
 		/*
 		 * \brief Attempt to parse a declaration
 		 * \returns true if declaration parse was successful.
+		 *
+		 * external-declaration ::= function-definition | declaration
 		 */
-		bool parse_declaration(translation_unit& tu) noexcept {
+		bool parse_external_declaration(translation_unit& tu) noexcept {
 			if (m_toks.empty()) {
 				return false;
 			}
 
+			if (parse_function_definition(tu))
+				return true;
+
+			if (parse_declaration(tu))
+				return true;
+
 			/* Keep track of first and last token when searching for a declaration.
 			 * Figure out the details later. */
 			auto const& start_token = current_token();
-
-			/* Hold a view of an ident value */
-			std::string_view id_val;
 
 			/* To determine if we're working with a var decl or a function decl, we
 			 * must first try to parse an ident token. */
 			for (;;) {
 				const auto tok = this->current_token();
 				switch (tok.id) {
-				case tok_id:
-					id_val = current_id_value();
-					break;
 #define KEYWORD_TOKEN(TOK, INTVAL, KEYWORD) \
 	case TOK:                              \
 		return parse_##KEYWORD(tu);
@@ -111,12 +189,13 @@ namespace a_c_compiler {
 					break;
 				}
 			}
+
 			return false;
 		}
 
 		translation_unit parse_translation_unit() noexcept {
 			translation_unit tu {};
-			while (parse_declaration(tu)) {
+			while (parse_external_declaration(tu)) {
 				continue;
 			}
 			return tu;
