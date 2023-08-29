@@ -6,7 +6,7 @@
 // ============================================================================ //
 #pragma once
 
-#include "ast_node.h"
+#include "lex.h"
 
 #include <span>
 #include <cstdint>
@@ -17,14 +17,16 @@
 #include <ztd/idk/assert.hpp>
 
 namespace a_c_compiler {
-
 	enum class type_modifier : unsigned char {
+		tm_none = 0,
 		tm_signed,
 		tm_unsigned,
 		tm__Atomic, // _Atomic(int)
 	};
 	enum class type_category : unsigned char {
+		tc_none,
 		tc_void,
+		tc_bool,
 		tc_char,
 		tc_short,
 		tc_int,
@@ -34,6 +36,7 @@ namespace a_c_compiler {
 		tc_float,
 		tc_double,
 		tc_longdouble,
+		tc_longlongdouble,
 		tc_union,
 		tc_struct,
 		tc_enum,
@@ -48,6 +51,7 @@ namespace a_c_compiler {
 		tc__Padding,  // extension: struct foo { int meow; _Padding(16) padding; uint16_t bark; };
 		tc_array_span // extension: array span
 	};
+
 	enum class qualifier : unsigned char {
 		none       = 0b0000,
 		q_const    = 0b0001,
@@ -55,7 +59,8 @@ namespace a_c_compiler {
 		q_volatile = 0b0100,
 		q_restrict = 0b1000,
 	};
-	enum class storage_class_specifier : unsigned short {
+
+	enum storage_class_specifier : unsigned short {
 		none             = 0b00000000000,
 		scs_static       = 0b00000000001,
 		scs_extern       = 0b00000000010,
@@ -66,6 +71,7 @@ namespace a_c_compiler {
 	};
 	using sc_specifier = storage_class_specifier;
 
+	struct type_data;
 	struct type {
 		constexpr type() noexcept                       = default;
 		constexpr type(const type&) noexcept            = default;
@@ -80,14 +86,17 @@ namespace a_c_compiler {
 			return m_ref;
 		}
 
+		type_data& data() const noexcept;
+
 	private:
 		std::uint_least32_t m_ref;
 	};
 
 	struct type_data {
-		type_category category;
+		type_modifier modifier;
+		type_category category = type_category::tc_none;
 		qualifier qualifiers;
-		storage_class_specifier specifiers;
+		std::uint32_t specifiers;
 		std::size_t bit_size; // for _BitInt and _Padding and friends
 		std::vector<type> sub_types;
 
@@ -146,22 +155,27 @@ namespace a_c_compiler {
 	struct attribute {
 		std::vector<token> tokens;
 	};
+
 	struct member_declaration {
 		type t;
 		std::size_t alignment;
 		std::size_t bit_field_size;
 		std::size_t bit_field_position; // extension
 	};
+
 	struct struct_declaration {
 		type t;
 		std::size_t alignment;
 		std::vector<attribute> attributes;
 		std::vector<member_declaration> members;
 	};
+
 	struct parameter_declaration {
 		type t;
 	};
+
 	struct function_declaration {
+		type_data type;
 		std::vector<attribute> attributes;
 		std::vector<parameter_declaration> members;
 	};

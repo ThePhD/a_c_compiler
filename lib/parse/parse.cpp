@@ -73,11 +73,121 @@ namespace a_c_compiler {
 		}
 
 		bool parse_storage_class_specifier(translation_unit& tu, function_definition& fd) {
+			switch (current_token().id) {
+			case tok_keyword_auto:
+				// TODO: was this intentionally left out of the scs enum?
+				assert(false && "unsupported storage class specifier");
+			case tok_keyword_static:
+				fd.declaration.type.specifiers |= storage_class_specifier::scs_static;
+				break;
+			case tok_keyword_extern:
+				fd.declaration.type.specifiers |= storage_class_specifier::scs_extern;
+				break;
+			case tok_keyword_constexpr:
+				fd.declaration.type.specifiers |= storage_class_specifier::scs_constexpr;
+				break;
+			case tok_keyword_register:
+				fd.declaration.type.specifiers |= storage_class_specifier::scs_register;
+				break;
+			case tok_keyword_thread_local:
+				fd.declaration.type.specifiers |= storage_class_specifier::scs_thread_local;
+				break;
+			case tok_keyword_typedef:
+				fd.declaration.type.specifiers |= storage_class_specifier::scs_typedef;
+				break;
+			default:
+				return false;
+			}
+			get_next_token();
+			return true;
+		}
+
+		void merge_type_categories(function_definition& fd, type_category tc) {
+#define TYPE_SPECIFIER_MERGE_RULE(BASETYPE, TYPESPEC, NEWTYPE)   \
+	if (fd.declaration.type.category == type_category::BASETYPE \
+	     && tc == type_category::TYPESPEC) {                    \
+		fd.declaration.type.category = type_category::NEWTYPE; \
+		return;                                                \
+	}
+			TYPE_SPECIFIER_MERGE_RULE(tc_long, tc_double, tc_longdouble);
+			TYPE_SPECIFIER_MERGE_RULE(tc_long, tc_longdouble, tc_longlongdouble);
+			TYPE_SPECIFIER_MERGE_RULE(tc_long, tc_int, tc_long);
+			TYPE_SPECIFIER_MERGE_RULE(tc_longlong, tc_int, tc_longlong);
+#undef TYPE_SPECIFIER_MERGE_RULE
+			/* If none of the rules match, just assign the new type to the function's
+			 * type category */
+			fd.declaration.type.category = tc;
+		}
+
+		void merge_type_categories(function_definition& fd, type_modifier tm) {
+			assert(fd.declaration.type.modifier == type_modifier::tm_none
+			     && "unexpected multiple type modifiers");
+			fd.declaration.type.modifier = tm;
+		}
+
+		bool parse_type_specifier(translation_unit& tu, function_definition& fd) {
+			switch (current_token().id) {
+			case tok_keyword_void:
+				fd.declaration.type.category = type_category::tc_void;
+				break;
+			case tok_keyword_char:
+				fd.declaration.type.category = type_category::tc_char;
+				break;
+			case tok_keyword_bool:
+				fd.declaration.type.category = type_category::tc_bool;
+				break;
+			case tok_keyword_short:
+				fd.declaration.type.category = type_category::tc_short;
+				break;
+			case tok_keyword_int:
+				merge_type_categories(fd, type_category::tc_int);
+				break;
+			case tok_keyword_long:
+				merge_type_categories(fd, type_category::tc_long);
+				break;
+			case tok_keyword_float:
+				merge_type_categories(fd, type_category::tc_float);
+				break;
+			case tok_keyword_double:
+				merge_type_categories(fd, type_category::tc_double);
+				break;
+			case tok_keyword_signed:
+				merge_type_categories(fd, type_modifier::tm_signed);
+				break;
+			case tok_keyword_unsigned:
+				merge_type_categories(fd, type_modifier::tm_unsigned);
+				break;
+			case tok_keyword__BitInt:
+			case tok_keyword__Complex:
+				// case tok_keyword__Decimal32: TODO
+				// case tok_keyword__Decimal64: TODO
+				// case tok_keyword__Decimal128: TODO
+				assert(false && "unsupported type specifier");
+				return false;
+				// TODO: atomic-type-specifier
+				// TODO: struct-or-union-specifier
+				// TODO: enum-specifier
+				// TODO: typedef-name
+				// TODO: typeof-specifier
+			}
+			return true;
+		}
+
+		bool parse_type_qualifier(translation_unit& tu, function_definition& fd) {
 			return false;
 		}
+
+		bool parse_alignment_specifier(translation_unit& tu, function_definition& fd) {
+			return false;
+		}
+
+		/*
+		 * type_specifier_qualifier ::= type-specifier | type-qualifier | alignment-specifier
+		 */
 		bool parse_type_specifier_qualifier(translation_unit& tu, function_definition& fd) {
 			return false;
 		}
+
 		bool parse_function_specifier(translation_unit& tu, function_definition& fd) {
 			return false;
 		}
@@ -107,7 +217,17 @@ namespace a_c_compiler {
 		 *    | declaration-specifier declaration-specifiers
 		 */
 		bool parse_declaration_specifiers(translation_unit& tu, function_definition& fd) {
-			return false;
+			if (!parse_declaration_specifier(tu, fd))
+				return false;
+
+			if (parse_attribute_specifier_sequence(tu, fd))
+				return true;
+
+			while (parse_declaration_specifier(tu, fd)) {
+				continue;
+			}
+
+			return true;
 		}
 
 		bool parse_declarator(translation_unit& tu, function_definition& fd) {
@@ -140,9 +260,9 @@ namespace a_c_compiler {
 			return true;
 		}
 
-    bool parse_declaration(translation_unit& tu) {
-      return false;
-    }
+		bool parse_declaration(translation_unit& tu) {
+			return false;
+		}
 
 		/*
 		 * \brief Attempt to parse a declaration
