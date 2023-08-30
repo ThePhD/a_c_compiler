@@ -17,12 +17,14 @@
 #include <ztd/idk/assert.hpp>
 
 namespace a_c_compiler {
+
 	enum class type_modifier : unsigned char {
 		tm_none = 0,
 		tm_signed,
 		tm_unsigned,
 		tm__Atomic, // _Atomic(int)
 	};
+
 	enum class type_category : unsigned char {
 		tc_none,
 		tc_void,
@@ -156,6 +158,10 @@ namespace a_c_compiler {
 		std::vector<token> tokens;
 	};
 
+  struct typed_ast_node {
+    type t;
+  };
+
 	struct member_declaration {
 		type t;
 		std::size_t alignment;
@@ -175,7 +181,7 @@ namespace a_c_compiler {
 	};
 
 	struct function_declaration {
-		type_data type;
+		type t;
 		std::vector<attribute> attributes;
 		std::vector<parameter_declaration> members;
 	};

@@ -78,22 +78,22 @@ namespace a_c_compiler {
 				// TODO: was this intentionally left out of the scs enum?
 				assert(false && "unsupported storage class specifier");
 			case tok_keyword_static:
-				fd.declaration.type.specifiers |= storage_class_specifier::scs_static;
+				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_static;
 				break;
 			case tok_keyword_extern:
-				fd.declaration.type.specifiers |= storage_class_specifier::scs_extern;
+				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_extern;
 				break;
 			case tok_keyword_constexpr:
-				fd.declaration.type.specifiers |= storage_class_specifier::scs_constexpr;
+				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_constexpr;
 				break;
 			case tok_keyword_register:
-				fd.declaration.type.specifiers |= storage_class_specifier::scs_register;
+				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_register;
 				break;
 			case tok_keyword_thread_local:
-				fd.declaration.type.specifiers |= storage_class_specifier::scs_thread_local;
+				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_thread_local;
 				break;
 			case tok_keyword_typedef:
-				fd.declaration.type.specifiers |= storage_class_specifier::scs_typedef;
+				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_typedef;
 				break;
 			default:
 				return false;
@@ -104,9 +104,9 @@ namespace a_c_compiler {
 
 		void merge_type_categories(function_definition& fd, type_category tc) {
 #define TYPE_SPECIFIER_MERGE_RULE(BASETYPE, TYPESPEC, NEWTYPE)   \
-	if (fd.declaration.type.category == type_category::BASETYPE \
+	if (fd.declaration.t.data().category == type_category::BASETYPE \
 	     && tc == type_category::TYPESPEC) {                    \
-		fd.declaration.type.category = type_category::NEWTYPE; \
+		fd.declaration.t.data().category = type_category::NEWTYPE; \
 		return;                                                \
 	}
 			TYPE_SPECIFIER_MERGE_RULE(tc_long, tc_double, tc_longdouble);
@@ -116,28 +116,28 @@ namespace a_c_compiler {
 #undef TYPE_SPECIFIER_MERGE_RULE
 			/* If none of the rules match, just assign the new type to the function's
 			 * type category */
-			fd.declaration.type.category = tc;
+			fd.declaration.t.data().category = tc;
 		}
 
 		void merge_type_categories(function_definition& fd, type_modifier tm) {
-			assert(fd.declaration.type.modifier == type_modifier::tm_none
+			assert(fd.declaration.t.data().modifier == type_modifier::tm_none
 			     && "unexpected multiple type modifiers");
-			fd.declaration.type.modifier = tm;
+			fd.declaration.t.data().modifier = tm;
 		}
 
 		bool parse_type_specifier(translation_unit& tu, function_definition& fd) {
 			switch (current_token().id) {
 			case tok_keyword_void:
-				fd.declaration.type.category = type_category::tc_void;
+				fd.declaration.t.data().category = type_category::tc_void;
 				break;
 			case tok_keyword_char:
-				fd.declaration.type.category = type_category::tc_char;
+				fd.declaration.t.data().category = type_category::tc_char;
 				break;
 			case tok_keyword_bool:
-				fd.declaration.type.category = type_category::tc_bool;
+				fd.declaration.t.data().category = type_category::tc_bool;
 				break;
 			case tok_keyword_short:
-				fd.declaration.type.category = type_category::tc_short;
+				fd.declaration.t.data().category = type_category::tc_short;
 				break;
 			case tok_keyword_int:
 				merge_type_categories(fd, type_category::tc_int);
