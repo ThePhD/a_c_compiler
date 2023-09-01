@@ -6,12 +6,31 @@
 // ============================================================================ //
 
 #include "parse.h"
+#include "logger.h"
+#include "feature_flag.h"
 #include "parser_diagnostic_reporter.h"
 #include "parser_diagnostic.h"
 
 #include <expected>
 #include <optional>
 #include <utility>
+
+#define DEBUGGING() get_feature_flag(1, 0x1)
+#define DEBUG(FORMATSTR, ...)                                                  \
+	if (DEBUGGING()) {                                                        \
+		logger::indent();                                                    \
+		std::fprintf(stderr, "parser:%s:" FORMATSTR, __func__, __VA_ARGS__); \
+	}
+#define DEBUGS(DEBUGSTR)                                         \
+	if (DEBUGGING()) {                                          \
+		logger::indent();                                      \
+		std::fprintf(stderr, "parser:%s:" DEBUGSTR, __func__); \
+	}
+#define ENTER_PARSE_FUNCTION()                                     \
+	scope_logger current_scope_logger(__func__, [&]() { \
+		auto loc = this -> current_token().source_location;      \
+		std::fprintf(stderr, ":%zu:%zu:", loc.lineno, loc.column);          \
+	});
 
 namespace a_c_compiler {
 
@@ -20,6 +39,7 @@ namespace a_c_compiler {
 		     std::reference_wrapper<const parser_diagnostic>>;
 
 		std::size_t m_toks_index;
+		std::size_t last_identifier_string_index;
 		token_vector const& m_toks;
 		parser_diagnostic_reporter& m_reporter;
 
@@ -46,6 +66,13 @@ namespace a_c_compiler {
 			return target_token;
 		}
 
+		void eat_token(token_id expected_token) noexcept {
+			auto maybe_tok = get_next_token();
+			assert(maybe_tok && "expected token");
+			token got_token = maybe_tok.value();
+			assert(got_token.id == expected_token && "got unexpected token");
+		}
+
 		std::optional<std::vector<attribute>> parse_attributes() noexcept {
 			return {};
 		}
@@ -69,10 +96,12 @@ namespace a_c_compiler {
 #undef KEYWORD_TOKEN
 
 		bool parse_attribute_specifier_sequence(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
 			return false;
 		}
 
 		bool parse_storage_class_specifier(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
 			switch (current_token().id) {
 			case tok_keyword_auto:
 				// TODO: was this intentionally left out of the scs enum?
@@ -103,11 +132,15 @@ namespace a_c_compiler {
 		}
 
 		void merge_type_categories(function_definition& fd, type_category tc) {
-#define TYPE_SPECIFIER_MERGE_RULE(BASETYPE, TYPESPEC, NEWTYPE)   \
+			/* If the two type categories are given as type specifiers, they may need
+			 * to be merged. E.g. long int and long do not need to be merged, we can
+			 * just take the former. long double however must be merged together into
+			 * the long double type category. */
+#define TYPE_SPECIFIER_MERGE_RULE(BASETYPE, TYPESPEC, NEWTYPE)       \
 	if (fd.declaration.t.data().category == type_category::BASETYPE \
-	     && tc == type_category::TYPESPEC) {                    \
+	     && tc == type_category::TYPESPEC) {                        \
 		fd.declaration.t.data().category = type_category::NEWTYPE; \
-		return;                                                \
+		return;                                                    \
 	}
 			TYPE_SPECIFIER_MERGE_RULE(tc_long, tc_double, tc_longdouble);
 			TYPE_SPECIFIER_MERGE_RULE(tc_long, tc_longdouble, tc_longlongdouble);
@@ -126,6 +159,7 @@ namespace a_c_compiler {
 		}
 
 		bool parse_type_specifier(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
 			switch (current_token().id) {
 			case tok_keyword_void:
 				fd.declaration.t.data().category = type_category::tc_void;
@@ -169,15 +203,19 @@ namespace a_c_compiler {
 				// TODO: enum-specifier
 				// TODO: typedef-name
 				// TODO: typeof-specifier
+			default:
+				return false;
 			}
 			return true;
 		}
 
 		bool parse_type_qualifier(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
 			return false;
 		}
 
 		bool parse_alignment_specifier(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
 			return false;
 		}
 
@@ -185,11 +223,24 @@ namespace a_c_compiler {
 		 * type_specifier_qualifier ::= type-specifier | type-qualifier | alignment-specifier
 		 */
 		bool parse_type_specifier_qualifier(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
 			return false;
 		}
 
 		bool parse_function_specifier(translation_unit& tu, function_definition& fd) {
-			return false;
+			ENTER_PARSE_FUNCTION();
+			switch (current_token().id) {
+			case tok_keyword_inline:
+				fd.declaration.funcspecs |= function_specifier::funcspec_inline;
+				break;
+			case tok_keyword__Noreturn:
+				fd.declaration.funcspecs |= function_specifier::funcspec__Noreturn;
+				break;
+			default:
+				return false;
+			}
+			get_next_token();
+			return true;
 		}
 
 		/*
@@ -199,6 +250,7 @@ namespace a_c_compiler {
 		 *    | function-specifier
 		 */
 		bool parse_declaration_specifier(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
 			if (parse_storage_class_specifier(tu, fd))
 				return true;
 
@@ -217,6 +269,7 @@ namespace a_c_compiler {
 		 *    | declaration-specifier declaration-specifiers
 		 */
 		bool parse_declaration_specifiers(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
 			if (!parse_declaration_specifier(tu, fd))
 				return false;
 
@@ -230,11 +283,107 @@ namespace a_c_compiler {
 			return true;
 		}
 
-		bool parse_declarator(translation_unit& tu, function_definition& fd) {
+		/*
+		 *
+		 */
+		bool parse_type_qualifier_list(translation_unit tu, function_definition fd) {
+			ENTER_PARSE_FUNCTION();
 			return false;
 		}
 
+		/*
+		 *
+		 */
+		bool parse_array_declarator(translation_unit tu, function_definition fd) {
+			ENTER_PARSE_FUNCTION();
+			return false;
+		}
+
+		/*
+		 *
+		 */
+		bool parse_function_declarator(translation_unit tu, function_definition fd) {
+			ENTER_PARSE_FUNCTION();
+			return false;
+		}
+
+
+		/*
+		 * pointer ::=
+		 *    * attribute-specifier-sequence? type-qualifier-list?
+		 *    | * attribute-specifier-sequence? type-qualifier-list? pointer
+		 */
+		bool parse_pointer(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
+			if (current_token().id != tok_asterisk)
+				return false;
+			while (current_token().id == tok_asterisk) {
+				parse_attribute_specifier_sequence(tu, fd);
+				parse_type_qualifier_list(tu, fd);
+				get_next_token();
+			}
+			return true;
+		}
+
+		bool parse_identifier(translation_unit& tu, function_definition& fd, std::string& idval) {
+			ENTER_PARSE_FUNCTION();
+			if (current_token().id == tok_id) {
+				idval = lexed_id(last_identifier_string_index++);
+				return true;
+			}
+			return false;
+		}
+
+		/*
+		 * direct-declarator ::=
+		 *    identifier attribute-specifier-sequence?
+		 *    | ( declarator )
+		 *    | array-declarator attribute-specifier-sequence?
+		 *    | function-declarator attribute-specifier-sequence?
+		 */
+		bool parse_direct_declarator(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
+			std::string idval;
+			if (parse_identifier(tu, fd, idval)) {
+				parse_attribute_specifier_sequence(tu, fd);
+				return true;
+			}
+
+			if (current_token().id == tok_l_paren) {
+				get_next_token();
+				if (!parse_declarator(tu, fd)) {
+					return false;
+				}
+				eat_token(tok_r_paren);
+			}
+
+			if (parse_array_declarator(tu, fd)) {
+				parse_attribute_specifier_sequence(tu, fd);
+				return true;
+			}
+
+			if (parse_function_declarator(tu, fd)) {
+				parse_attribute_specifier_sequence(tu, fd);
+				return true;
+			}
+
+			return false;
+		}
+
+		/*
+		 * declarator ::= pointer? direct declarator
+		 */
+		bool parse_declarator(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
+			parse_pointer(tu, fd);
+			if (!parse_direct_declarator(tu, fd))
+				return false;
+			get_next_token();
+			return true;
+		}
+
 		bool parse_function_body(translation_unit& tu, function_definition& fd) {
+			ENTER_PARSE_FUNCTION();
 			return false;
 		}
 
@@ -243,6 +392,7 @@ namespace a_c_compiler {
 		 *    attribute-specifier-sequence? declaration-specifiers declarator function-body
 		 */
 		bool parse_function_definition(translation_unit& tu) {
+			ENTER_PARSE_FUNCTION();
 			function_definition fd;
 
 			/* attr specs are optional, so don't bail if we don't find any */
@@ -261,6 +411,7 @@ namespace a_c_compiler {
 		}
 
 		bool parse_declaration(translation_unit& tu) {
+			ENTER_PARSE_FUNCTION();
 			return false;
 		}
 
@@ -271,6 +422,7 @@ namespace a_c_compiler {
 		 * external-declaration ::= function-definition | declaration
 		 */
 		bool parse_external_declaration(translation_unit& tu) noexcept {
+			ENTER_PARSE_FUNCTION();
 			if (m_toks.empty()) {
 				return false;
 			}

@@ -15,9 +15,11 @@
 #include <string_view>
 #include <vector>
 #include <string>
+#include <optional>
 
 using namespace std::literals;
 namespace fs = std::filesystem;
+using std::nullopt;
 
 
 #include "feature_flag.h"
@@ -51,7 +53,7 @@ int help_with(std::string_view exe, int return_code) noexcept {
 	std::cout << "Usage:\t" << exe << " [flags] [source files]\n\n";
 
 	std::cout << "Flags:\n";
-#define FLAG(NAME, DEFVAL, FSHORT, FLONG, HELP) help_flag(FSHORT, FLONG, HELP);
+#define FLAG(NAME, DEFVAL, FSHORT, FLONG, FLAG, BIT, HELP) help_flag(FSHORT, FLONG, HELP);
 #include "command_line_options.inl.h"
 #undef FLAG
 
@@ -103,9 +105,14 @@ bool parse_args(const std::string& exe, const std::vector<std::string>& args) {
 			return false;
 		}
 
-#define FLAG(NAME, DEFVAL, FSHORT, FLONG, HELP) \
+#define FLAG(NAME, DEFVAL, FSHORT, FLONG, FLAG, BIT, HELP) \
 	else if (*it == FSHORT or *it == FLONG) {  \
 		cli_opts.NAME = true;                 \
+    std::optional<std::uint64_t> flag = FLAG, bit = BIT; \
+    if (flag.has_value()) { \
+      assert(bit.has_value()); \
+      set_feature_flag(flag.value(), bit.value()); \
+    } \
 	}
 
 #define OPTION(NAME, TYPE, CLINAME, DEFVAL, HELP)                                            \
@@ -158,7 +165,7 @@ void print_cli_opts() {
 	std::cout << "]\n";
 
 	std::cout
-#define FLAG(NAME, DEFVAL, FSHORT, FLONG, HELP) \
+#define FLAG(NAME, DEFVAL, FSHORT, FLONG, FLAG, BIT, HELP) \
 	<< "  " << #NAME << ":\n    kind: flag\n    value: " << cli_opts.NAME << "\n"
 #define OPTION(NAME, TYPE, CLINAME, DEFVAL, HELP)                            \
 	<< "  " << #NAME << ":\n    kind: option\n    value: " << cli_opts.NAME \

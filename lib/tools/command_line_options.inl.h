@@ -9,11 +9,12 @@
 /*
  * true/false flags
  *
- * (Source name, default value, short flag, long flag, help message)
+ * (Source name, default value, short flag, long flag, feature flag?, feature flag bit?, help message)
  */
-FLAG(help, false, "-h", "--help", "Print help message")
-FLAG(verbose, false, "-v", "--verbose", "Display extra information from the driver")
-FLAG(debug_lexer, false, "-L", "-fdebug-lexer", "Dump tokens after lexing phase")
+FLAG(help, false, "-h", "--help", nullopt, nullopt, "Print help message")
+FLAG(verbose, false, "-v", "--verbose", nullopt, nullopt, "Display extra information from the driver")
+FLAG(debug_lexer, false, "-L", "-fdebug-lexer", nullopt, nullopt, "Dump tokens after lexing phase")
+FLAG(debug_parser, false, "", "-fdebug-parser", 1, 0x1, "Dump tokens after lexing phase")
 #endif
 
 #ifdef OPTION

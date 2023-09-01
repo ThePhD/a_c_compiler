@@ -17,6 +17,10 @@
 #include <ztd/idk/assert.hpp>
 
 namespace a_c_compiler {
+  enum function_specifier {
+    funcspec_inline = 0x1,
+    funcspec__Noreturn = 0x2,
+  };
 
 	enum class type_modifier : unsigned char {
 		tm_none = 0,
@@ -182,6 +186,7 @@ namespace a_c_compiler {
 
 	struct function_declaration {
 		type t;
+    unsigned char funcspecs = 0;
 		std::vector<attribute> attributes;
 		std::vector<parameter_declaration> members;
 	};
