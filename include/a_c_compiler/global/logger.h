@@ -28,8 +28,8 @@ namespace a_c_compiler {
 		}
 		~scope_logger() noexcept {
       logger::decr_indent();
-      logger::indent();
-			fprintf(stderr, "%s\n", scope_name.c_str());
+      // logger::indent();
+			// fprintf(stderr, "%s\n", scope_name.c_str());
 		}
 
 	private:

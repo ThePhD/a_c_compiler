@@ -26,10 +26,10 @@
 		logger::indent();                                      \
 		std::fprintf(stderr, "parser:%s:" DEBUGSTR, __func__); \
 	}
-#define ENTER_PARSE_FUNCTION()                                     \
-	scope_logger current_scope_logger(__func__, [&]() { \
-		auto loc = this -> current_token().source_location;      \
-		std::fprintf(stderr, ":%zu:%zu:", loc.lineno, loc.column);          \
+#define ENTER_PARSE_FUNCTION()                                       \
+	scope_logger current_scope_logger(__func__, [&]() {             \
+		auto loc = this -> current_token().source_location;        \
+		std::fprintf(stderr, ":%zu:%zu:", loc.lineno, loc.column); \
 	});
 
 namespace a_c_compiler {
@@ -39,7 +39,8 @@ namespace a_c_compiler {
 		     std::reference_wrapper<const parser_diagnostic>>;
 
 		std::size_t m_toks_index;
-		std::size_t last_identifier_string_index;
+		std::size_t m_last_identifier_string_index = 0;
+		std::vector<std::size_t> m_token_history_stack;
 		token_vector const& m_toks;
 		parser_diagnostic_reporter& m_reporter;
 
@@ -66,11 +67,38 @@ namespace a_c_compiler {
 			return target_token;
 		}
 
+		void unget_token() noexcept {
+			ZTD_ASSERT_MESSAGE(
+			     "Cannot unget token at beginning of token stream", m_toks_index > 0);
+			m_toks_index--;
+		}
+
 		void eat_token(token_id expected_token) noexcept {
 			auto maybe_tok = get_next_token();
 			assert(maybe_tok && "expected token");
 			token got_token = maybe_tok.value();
 			assert(got_token.id == expected_token && "got unexpected token");
+		}
+
+		void pop_token_index() {
+			m_toks_index = m_token_history_stack.back();
+			m_token_history_stack.pop_back();
+		}
+
+		void push_token_index() {
+			m_token_history_stack.push_back(m_toks_index);
+		}
+
+		token find_first_of(std::vector<token_id> toks) {
+			push_token_index();
+			while (std::find(toks.begin(), toks.end(), current_token().id) == toks.end()) {
+				if (!get_next_token().has_value()) {
+					break;
+				}
+			}
+			token found_tok = current_token();
+			pop_token_index();
+			return found_tok;
 		}
 
 		std::optional<std::vector<attribute>> parse_attributes() noexcept {
@@ -100,29 +128,30 @@ namespace a_c_compiler {
 			return false;
 		}
 
-		bool parse_storage_class_specifier(translation_unit& tu, function_definition& fd) {
+		bool parse_storage_class_specifier(
+		     translation_unit& tu, function_definition& fd, type ty) {
 			ENTER_PARSE_FUNCTION();
 			switch (current_token().id) {
 			case tok_keyword_auto:
 				// TODO: was this intentionally left out of the scs enum?
 				assert(false && "unsupported storage class specifier");
 			case tok_keyword_static:
-				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_static;
+				ty.data().specifiers |= storage_class_specifier::scs_static;
 				break;
 			case tok_keyword_extern:
-				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_extern;
+				ty.data().specifiers |= storage_class_specifier::scs_extern;
 				break;
 			case tok_keyword_constexpr:
-				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_constexpr;
+				ty.data().specifiers |= storage_class_specifier::scs_constexpr;
 				break;
 			case tok_keyword_register:
-				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_register;
+				ty.data().specifiers |= storage_class_specifier::scs_register;
 				break;
 			case tok_keyword_thread_local:
-				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_thread_local;
+				ty.data().specifiers |= storage_class_specifier::scs_thread_local;
 				break;
 			case tok_keyword_typedef:
-				fd.declaration.t.data().specifiers |= storage_class_specifier::scs_typedef;
+				ty.data().specifiers |= storage_class_specifier::scs_typedef;
 				break;
 			default:
 				return false;
@@ -131,16 +160,15 @@ namespace a_c_compiler {
 			return true;
 		}
 
-		void merge_type_categories(function_definition& fd, type_category tc) {
+		void merge_type_categories(type ty, type_category tc) {
 			/* If the two type categories are given as type specifiers, they may need
 			 * to be merged. E.g. long int and long do not need to be merged, we can
 			 * just take the former. long double however must be merged together into
 			 * the long double type category. */
-#define TYPE_SPECIFIER_MERGE_RULE(BASETYPE, TYPESPEC, NEWTYPE)       \
-	if (fd.declaration.t.data().category == type_category::BASETYPE \
-	     && tc == type_category::TYPESPEC) {                        \
-		fd.declaration.t.data().category = type_category::NEWTYPE; \
-		return;                                                    \
+#define TYPE_SPECIFIER_MERGE_RULE(BASETYPE, NEWTYPESPEC, NEWTYPE)                             \
+	if (ty.data().category == type_category::BASETYPE && tc == type_category::NEWTYPESPEC) { \
+		ty.data().category = type_category::NEWTYPE;                                        \
+		return;                                                                             \
 	}
 			TYPE_SPECIFIER_MERGE_RULE(tc_long, tc_double, tc_longdouble);
 			TYPE_SPECIFIER_MERGE_RULE(tc_long, tc_longdouble, tc_longlongdouble);
@@ -149,47 +177,47 @@ namespace a_c_compiler {
 #undef TYPE_SPECIFIER_MERGE_RULE
 			/* If none of the rules match, just assign the new type to the function's
 			 * type category */
-			fd.declaration.t.data().category = tc;
+			ty.data().category = tc;
 		}
 
-		void merge_type_categories(function_definition& fd, type_modifier tm) {
-			assert(fd.declaration.t.data().modifier == type_modifier::tm_none
+		void merge_type_categories(type ty, type_modifier tm) {
+			assert(ty.data().modifier == type_modifier::tm_none
 			     && "unexpected multiple type modifiers");
-			fd.declaration.t.data().modifier = tm;
+			ty.data().modifier = tm;
 		}
 
-		bool parse_type_specifier(translation_unit& tu, function_definition& fd) {
+		bool parse_type_specifier(translation_unit& tu, function_definition& fd, type ty) {
 			ENTER_PARSE_FUNCTION();
 			switch (current_token().id) {
 			case tok_keyword_void:
-				fd.declaration.t.data().category = type_category::tc_void;
+				ty.data().category = type_category::tc_void;
 				break;
 			case tok_keyword_char:
-				fd.declaration.t.data().category = type_category::tc_char;
+				ty.data().category = type_category::tc_char;
 				break;
 			case tok_keyword_bool:
-				fd.declaration.t.data().category = type_category::tc_bool;
+				ty.data().category = type_category::tc_bool;
 				break;
 			case tok_keyword_short:
-				fd.declaration.t.data().category = type_category::tc_short;
+				ty.data().category = type_category::tc_short;
 				break;
 			case tok_keyword_int:
-				merge_type_categories(fd, type_category::tc_int);
+				merge_type_categories(ty, type_category::tc_int);
 				break;
 			case tok_keyword_long:
-				merge_type_categories(fd, type_category::tc_long);
+				merge_type_categories(ty, type_category::tc_long);
 				break;
 			case tok_keyword_float:
-				merge_type_categories(fd, type_category::tc_float);
+				merge_type_categories(ty, type_category::tc_float);
 				break;
 			case tok_keyword_double:
-				merge_type_categories(fd, type_category::tc_double);
+				merge_type_categories(ty, type_category::tc_double);
 				break;
 			case tok_keyword_signed:
-				merge_type_categories(fd, type_modifier::tm_signed);
+				merge_type_categories(ty, type_modifier::tm_signed);
 				break;
 			case tok_keyword_unsigned:
-				merge_type_categories(fd, type_modifier::tm_unsigned);
+				merge_type_categories(ty, type_modifier::tm_unsigned);
 				break;
 			case tok_keyword__BitInt:
 			case tok_keyword__Complex:
@@ -197,7 +225,6 @@ namespace a_c_compiler {
 				// case tok_keyword__Decimal64: TODO
 				// case tok_keyword__Decimal128: TODO
 				assert(false && "unsupported type specifier");
-				return false;
 				// TODO: atomic-type-specifier
 				// TODO: struct-or-union-specifier
 				// TODO: enum-specifier
@@ -206,15 +233,16 @@ namespace a_c_compiler {
 			default:
 				return false;
 			}
+			get_next_token();
 			return true;
 		}
 
-		bool parse_type_qualifier(translation_unit& tu, function_definition& fd) {
+		bool parse_type_qualifier(translation_unit& tu, function_definition& fd, type ty) {
 			ENTER_PARSE_FUNCTION();
 			return false;
 		}
 
-		bool parse_alignment_specifier(translation_unit& tu, function_definition& fd) {
+		bool parse_alignment_specifier(translation_unit& tu, function_definition& fd, type ty) {
 			ENTER_PARSE_FUNCTION();
 			return false;
 		}
@@ -222,8 +250,15 @@ namespace a_c_compiler {
 		/*
 		 * type_specifier_qualifier ::= type-specifier | type-qualifier | alignment-specifier
 		 */
-		bool parse_type_specifier_qualifier(translation_unit& tu, function_definition& fd) {
+		bool parse_type_specifier_qualifier(
+		     translation_unit& tu, function_definition& fd, type ty) {
 			ENTER_PARSE_FUNCTION();
+			if (parse_type_specifier(tu, fd, ty))
+				return true;
+			if (parse_type_qualifier(tu, fd, ty))
+				return true;
+			if (parse_alignment_specifier(tu, fd, ty))
+				return true;
 			return false;
 		}
 
@@ -249,12 +284,12 @@ namespace a_c_compiler {
 		 *    | type-specifier-qualifier
 		 *    | function-specifier
 		 */
-		bool parse_declaration_specifier(translation_unit& tu, function_definition& fd) {
+		bool parse_declaration_specifier(translation_unit& tu, function_definition& fd, type ty) {
 			ENTER_PARSE_FUNCTION();
-			if (parse_storage_class_specifier(tu, fd))
+			if (parse_storage_class_specifier(tu, fd, ty))
 				return true;
 
-			if (parse_type_specifier_qualifier(tu, fd))
+			if (parse_type_specifier_qualifier(tu, fd, ty))
 				return true;
 
 			if (parse_function_specifier(tu, fd))
@@ -268,13 +303,14 @@ namespace a_c_compiler {
 		 *    declaration-specifier attribute-specifier-sequence?
 		 *    | declaration-specifier declaration-specifiers
 		 */
-		bool parse_declaration_specifiers(translation_unit& tu, function_definition& fd) {
+		bool parse_declaration_specifiers(
+		     translation_unit& tu, function_definition& fd, type ty) {
 			ENTER_PARSE_FUNCTION();
-			while (parse_declaration_specifier(tu, fd)) {
-        parse_attribute_specifier_sequence(tu, fd);
-      }
+			while (parse_declaration_specifier(tu, fd, ty)) {
+				// parse_attribute_specifier_sequence(tu, fd, ty);
+			}
 
-      /* empty declspecs is valid */
+			/* empty declspecs is valid */
 			return true;
 		}
 
@@ -294,12 +330,38 @@ namespace a_c_compiler {
 			return false;
 		}
 
+		bool parse_parameter_type_list(
+		     translation_unit tu, function_definition fd, std::vector<type>& typelist) {
+			ENTER_PARSE_FUNCTION();
+			return false;
+		}
+
 		/*
-		 *
+		 * function-declarator ::=
+		 *      direct-declarator ( parameter-type-list? )
 		 */
 		bool parse_function_declarator(translation_unit tu, function_definition fd) {
 			ENTER_PARSE_FUNCTION();
-			return false;
+			std::string funcname;
+			push_token_index();
+      // should be parse_declarator
+			// if (!parse_declarator(tu, fd)) {
+      if (!parse_identifier(tu, fd, funcname)) {
+				pop_token_index();
+				return false;
+			}
+			if (current_token().id != tok_l_paren) {
+				pop_token_index();
+				return false;
+			}
+			get_next_token();
+			std::vector<type> typelist;
+			if (!parse_parameter_type_list(tu, fd, typelist)) {
+				pop_token_index();
+				return false;
+			}
+			eat_token(tok_r_paren);
+			return true;
 		}
 
 
@@ -313,7 +375,7 @@ namespace a_c_compiler {
 			if (current_token().id != tok_asterisk)
 				return false;
 			while (current_token().id == tok_asterisk) {
-				parse_attribute_specifier_sequence(tu, fd);
+				// parse_attribute_specifier_sequence(tu, fd);
 				parse_type_qualifier_list(tu, fd);
 				get_next_token();
 			}
@@ -322,18 +384,18 @@ namespace a_c_compiler {
 
 		bool parse_identifier(translation_unit& tu, function_definition& fd, std::string& idval) {
 			ENTER_PARSE_FUNCTION();
-      switch (current_token().id) {
-        case tok_id:
-          idval = lexed_id(last_identifier_string_index++);
-          break;
-        case tok_keyword_int:
-          idval = "int";
-          break;
-        default:
-          return false;
-      }
-      get_next_token();
-      return true;
+			switch (current_token().id) {
+			case tok_id:
+				idval = lexed_id(m_last_identifier_string_index++);
+				break;
+			case tok_keyword_int:
+				idval = "int";
+				break;
+			default:
+				return false;
+			}
+			get_next_token();
+			return true;
 		}
 
 		/*
@@ -346,26 +408,31 @@ namespace a_c_compiler {
 		bool parse_direct_declarator(translation_unit& tu, function_definition& fd) {
 			ENTER_PARSE_FUNCTION();
 			std::string idval;
+
+			// If we find lparen before the next '{' or ';', it's probably a function
+			// declarator
+			const token t = find_first_of({ tok_l_paren, tok_l_curly_bracket, tok_semicolon });
+			if (t.id == tok_l_paren && parse_function_declarator(tu, fd)) {
+				// parse_attribute_specifier_sequence(tu, fd);
+				return true;
+			}
+
 			if (parse_identifier(tu, fd, idval)) {
-				parse_attribute_specifier_sequence(tu, fd);
+				// parse_attribute_specifier_sequence(tu, fd);
 				return true;
 			}
 
 			if (current_token().id == tok_l_paren) {
 				get_next_token();
 				if (!parse_declarator(tu, fd)) {
+					unget_token();
 					return false;
 				}
 				eat_token(tok_r_paren);
 			}
 
 			if (parse_array_declarator(tu, fd)) {
-				parse_attribute_specifier_sequence(tu, fd);
-				return true;
-			}
-
-			if (parse_function_declarator(tu, fd)) {
-				parse_attribute_specifier_sequence(tu, fd);
+				// parse_attribute_specifier_sequence(tu, fd);
 				return true;
 			}
 
@@ -373,7 +440,7 @@ namespace a_c_compiler {
 		}
 
 		/*
-		 * declarator ::= pointer? direct declarator
+		 * declarator ::= pointer? direct-declarator
 		 */
 		bool parse_declarator(translation_unit& tu, function_definition& fd) {
 			ENTER_PARSE_FUNCTION();
@@ -396,11 +463,12 @@ namespace a_c_compiler {
 		bool parse_function_definition(translation_unit& tu) {
 			ENTER_PARSE_FUNCTION();
 			function_definition fd;
+			fd.declaration.t = type_data::get_new_type();
 
-			/* attr specs are optional, so don't bail if we don't find any */
-			parse_attribute_specifier_sequence(tu, fd);
+			// parse_attribute_specifier_sequence(tu, fd);
 
-			if (!parse_declaration_specifiers(tu, fd))
+			type return_type = type_data::get_new_type();
+			if (!parse_declaration_specifiers(tu, fd, return_type))
 				return false;
 
 			if (!parse_declarator(tu, fd))
@@ -412,6 +480,9 @@ namespace a_c_compiler {
 			return true;
 		}
 
+		/*
+		 *
+		 */
 		bool parse_declaration(translation_unit& tu) {
 			ENTER_PARSE_FUNCTION();
 			return false;
@@ -429,11 +500,15 @@ namespace a_c_compiler {
 				return false;
 			}
 
+			push_token_index();
 			if (parse_function_definition(tu))
 				return true;
+			pop_token_index();
 
+			push_token_index();
 			if (parse_declaration(tu))
 				return true;
+			pop_token_index();
 
 			/* Keep track of first and last token when searching for a declaration.
 			 * Figure out the details later. */
