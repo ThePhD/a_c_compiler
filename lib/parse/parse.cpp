@@ -270,16 +270,11 @@ namespace a_c_compiler {
 		 */
 		bool parse_declaration_specifiers(translation_unit& tu, function_definition& fd) {
 			ENTER_PARSE_FUNCTION();
-			if (!parse_declaration_specifier(tu, fd))
-				return false;
-
-			if (parse_attribute_specifier_sequence(tu, fd))
-				return true;
-
 			while (parse_declaration_specifier(tu, fd)) {
-				continue;
-			}
+        parse_attribute_specifier_sequence(tu, fd);
+      }
 
+      /* empty declspecs is valid */
 			return true;
 		}
 
@@ -327,11 +322,18 @@ namespace a_c_compiler {
 
 		bool parse_identifier(translation_unit& tu, function_definition& fd, std::string& idval) {
 			ENTER_PARSE_FUNCTION();
-			if (current_token().id == tok_id) {
-				idval = lexed_id(last_identifier_string_index++);
-				return true;
-			}
-			return false;
+      switch (current_token().id) {
+        case tok_id:
+          idval = lexed_id(last_identifier_string_index++);
+          break;
+        case tok_keyword_int:
+          idval = "int";
+          break;
+        default:
+          return false;
+      }
+      get_next_token();
+      return true;
 		}
 
 		/*
