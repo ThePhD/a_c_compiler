@@ -74,6 +74,7 @@ namespace a_c_compiler {
 		scs_register     = 0b00000001000,
 		scs_thread_local = 0b00000010000,
 		scs_typedef      = 0b00000100000,
+		scs_auto         = 0b00001000000
 	};
 	using sc_specifier = storage_class_specifier;
 
