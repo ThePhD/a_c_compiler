@@ -8,6 +8,7 @@
 #pragma once
 
 #include <a_c_compiler/options/global_options.h>
+#include <a_c_compiler/fe/reporting/diagnostic_handles.h>
 #include <a_c_compiler/fe/reporting/logger.h>
 
 #include <filesystem>
@@ -47,6 +48,6 @@ namespace a_c_compiler {
 	std::string_view lexed_numeric_literal(size_t index) noexcept;
 	std::string_view lexed_string_literal(size_t index) noexcept;
 
-	token_vector lex(
-	     fs::path const& source_file, const global_options& global_opts, logger& logs) noexcept;
+	token_vector lex(fs::path const& source_file, const global_options& global_opts,
+	     diagnostic_handles& diag_handles) noexcept;
 } /* namespace a_c_compiler */

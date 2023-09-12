@@ -6,10 +6,11 @@
 // ============================================================================ //
 
 #include <a_c_compiler/fe/lex/lex.h>
+#include <a_c_compiler/fe/reporting/diagnostic_handles.h>
 
-#include <ztd/idk/version.hpp>
+#include <a_c_compiler/version.h>
+#include <ztd/idk/assert.hpp>
 
-#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -89,7 +90,7 @@ namespace a_c_compiler {
 				break;
 
 			default:
-				assert(false && "Got invalid token");
+				ZTD_ASSERT_MESSAGE("Got invalid token", false);
 			}
 			output_stream << "\n";
 		}
@@ -109,8 +110,8 @@ namespace a_c_compiler {
 		return lexed_string_literals[index].data();
 	}
 
-	token_vector lex(
-	     fs::path const& source_file, const global_options& global_opts, logger& logs) noexcept {
+	token_vector lex(fs::path const& source_file, const global_options& global_opts,
+	     diagnostic_handles& diag_handles) noexcept {
 		token_vector toks;
 		toks.reserve(2048);
 
@@ -121,7 +122,7 @@ namespace a_c_compiler {
 		     std::fopen(source_file.c_str(), "r")
 #endif
 		     ;
-		assert(fp && "Couldn't open file");
+		ZTD_ASSERT_MESSAGE("Couldn't open file", fp);
 		char c;
 		size_t lineno = 0, column = 0;
 
@@ -168,7 +169,7 @@ namespace a_c_compiler {
 							toks.push_back({ tok_block_comment, foi });
 							break;
 						}
-						assert(c != EOF && "unterminated block comment");
+						ZTD_ASSERT_MESSAGE("unterminated block comment", c != EOF);
 					}
 					break;
 				}

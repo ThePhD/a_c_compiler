@@ -16,25 +16,25 @@
 #include <utility>
 
 #define DEBUGGING() this->global_opts.get_feature_flag(1, 0x1)
-#define DEBUG(FORMATSTR, ...)                                                                 \
-	if (DEBUGGING()) {                                                                       \
-		this->m_logger.indent();                                                            \
-		std::fprintf(                                                                       \
-		     this->m_logger.c_out_handle(), "parser:%s:" FORMATSTR, __func__, __VA_ARGS__); \
+#define DEBUG(FORMATSTR, ...)                                                                   \
+	if (DEBUGGING()) {                                                                         \
+		this->m_logger.indent();                                                              \
+		std::fprintf(                                                                         \
+		     this->m_debug_logger.c_handle(), "parser:%s:" FORMATSTR, __func__, __VA_ARGS__); \
 	}
-#define DEBUGS(DEBUGSTR)                                                                \
-	if (DEBUGGING()) {                                                                 \
-		this->m_logger.indent();                                                      \
-		std::fprintf(this->m_logger.c_out_handle(), "parser:%s:" DEBUGSTR, __func__); \
+#define DEBUGS(DEBUGSTR)                                                                  \
+	if (DEBUGGING()) {                                                                   \
+		this->m_logger.indent();                                                        \
+		std::fprintf(this->m_debug_logger.c_handle(), "parser:%s:" DEBUGSTR, __func__); \
 	}
-#define ENTER_PARSE_FUNCTION()                                                                   \
-	scope_logger current_scope_logger(                                                          \
-	     __func__,                                                                              \
-	     [&]() {                                                                                \
-		     auto loc = this->current_token().source_location;                                 \
-		     std::fprintf(this->m_logger.c_out_handle(), ":%zu:%zu:", loc.lineno, loc.column); \
-	     },                                                                                     \
-	     this->m_logger);
+#define ENTER_PARSE_FUNCTION()                                                       \
+	scope_logger current_scope_logger(                                              \
+	     __func__,                                                                  \
+	     [&](logger& logger) {                                                      \
+		     auto loc = this->current_token().source_location;                     \
+		     std::fprintf(logger.c_handle(), ":%zu:%zu:", loc.lineno, loc.column); \
+	     },                                                                         \
+	     this->m_debug_logger);
 
 namespace a_c_compiler {
 
@@ -48,20 +48,20 @@ namespace a_c_compiler {
 		token_vector const& m_toks;
 		parser_diagnostic_reporter& m_reporter;
 		const global_options& m_global_opts;
-		logger& m_logger;
+		logger m_debug_logger;
 
 		/* Which ident are we operating on? This allows us to get a handle to the
 		 * string representation of an id. */
 		std::size_t id_index = 0;
 
 		constexpr parser(std::size_t toks_index, token_vector const& toks,
-		     parser_diagnostic_reporter& reporter, const global_options& global_opts,
-		     logger& logs) noexcept
+		     parser_diagnostic_reporter& reporter, const global_options& global_opts) noexcept
 		: m_toks_index(toks_index)
 		, m_toks(toks)
 		, m_reporter(reporter)
 		, m_global_opts(global_opts)
-		, m_logger(logs) {
+		, m_debug_logger(
+		       reporter.handles().debug_handle(), reporter.handles().c_debug_handle(), 1) {
 		}
 
 		const token& current_token() noexcept {
@@ -425,8 +425,8 @@ namespace a_c_compiler {
 		}
 
 		void merge_type_categories(type ty, type_modifier tm) {
-			assert(ty.data().modifier == type_modifier::tm_none
-			     && "unexpected multiple type modifiers");
+			ZTD_ASSERT_MESSAGE("unexpected multiple type modifiers",
+			     ty.data().modifier == type_modifier::tm_none);
 			ty.data().modifier = tm;
 		}
 
@@ -468,7 +468,7 @@ namespace a_c_compiler {
 				// case tok_keyword__Decimal32: TODO
 				// case tok_keyword__Decimal64: TODO
 				// case tok_keyword__Decimal128: TODO
-				assert(false && "unsupported type specifier");
+				ZTD_ASSERT_MESSAGE("unsupported type specifier", false);
 				// TODO: atomic-type-specifier
 				// TODO: struct-or-union-specifier
 				// TODO: enum-specifier
@@ -797,10 +797,10 @@ namespace a_c_compiler {
 
 
 
-	ast_module parse(
-	     token_vector const& toks, const global_options& global_opts, logger& logs) noexcept {
-		parser_diagnostic_reporter reporter {};
-		parser p(0, toks, reporter, global_opts, logs);
+	ast_module parse(token_vector const& toks, const global_options& global_opts,
+	     diagnostic_handles& diag_handles) noexcept {
+		parser_diagnostic_reporter reporter { diag_handles };
+		parser p(0, toks, reporter, global_opts);
 		ast_module mod { p.parse_translation_unit() };
 		return mod;
 	}
