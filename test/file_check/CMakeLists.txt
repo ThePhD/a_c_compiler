@@ -31,5 +31,6 @@ target_link_libraries(a_c_compiler.test.file_check
 	ztd::idk
 )
 target_include_directories(a_c_compiler.test.file_check
-	PRIVATE include/
+	PRIVATE
+	include
 )

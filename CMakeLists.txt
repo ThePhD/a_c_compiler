@@ -74,10 +74,6 @@ if(A_C_COMPILER_IS_TOP_LEVEL_PROJECT)
 	endif()
 endif()
 
-foreach(include_dir lex parse global)
-  include_directories("${PROJECT_SOURCE_DIR}/include/a_c_compiler/${include_dir}")
-endforeach()
-
 option(A_C_COMPILER_DOCUMENTATION "Enable build of documentation" OFF)
 option(A_C_COMPILER_DOCUMENTATION_NO_SPHINX "Turn off Sphinx usage (useful for ReadTheDocs builds)" OFF)
 option(A_C_COMPILER_EXAMPLES "Enable build of examples" OFF)
@@ -122,7 +118,9 @@ endif()
 
 ## Add executables, components, and libraries
 # a_c_compiler frontend libraries/executable
-add_subdirectory(lib)
+add_subdirectory(options)
+add_subdirectory(fe)
+add_subdirectory(driver)
 if (A_C_COMPILER_TESTS)
 	# a_c_compiler tests
 	add_subdirectory(test)
